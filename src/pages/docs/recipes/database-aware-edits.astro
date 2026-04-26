@@ -1,0 +1,160 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How to make AI agents schema-aware (Postgres / Supabase) · agentmako"
+  description="A walkthrough recipe — add a Postgres column with RLS, find every code site that touches the table, audit tenant isolation. With db_table_schema, db_rls, schema_usage, tenant_leak_audit."
+  canonicalPath="/docs/recipes/database-aware-edits.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — schema-aware edits recipe."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Recipes", "href": "/docs/recipes/"}, {"name": "Database-aware edits", "href": "/docs/recipes/database-aware-edits.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Recipe &middot; Database</span>
+    <h1 style="margin-top:1rem;">How to make AI agents <em>schema-aware</em> (Postgres / Supabase)</h1>
+    <p class="doc-hero__sub">
+      <strong>TL;DR:</strong> Out of the box, Claude Code, Cursor, and
+      Codex know nothing about your database. Wire agentmako's DB tools
+      once and your agent can inspect tables, RLS policies, and RPC
+      bodies the same way it inspects code. Tools used:
+      <code>db_table_schema</code>, <code>db_rls</code>, <code>db_rpc</code>,
+      <code>schema_usage</code>, <code>tenant_leak_audit</code>,
+      <code>db_reef_refresh</code>.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <section>
+        <h2>The scenario</h2>
+        <p>You need to add a <code>billing_status</code> column to the
+        <code>organizations</code> table, with an RLS policy that lets
+        owners read/write but lets members read only. Then update every
+        code site that reads from <code>organizations</code> so it knows
+        about the new column. Then verify multi-tenant isolation hasn't
+        regressed.</p>
+      </section>
+
+      <section>
+        <h2>Connect agentmako to your database</h2>
+        <p>One-time setup. From the project root:</p>
+        <pre><code>$ agentmako connect .            # interactive, prompts for DB URL
+# or for CI:
+$ agentmako connect . --db-env DATABASE_URL --yes</code></pre>
+        <p>Credentials live in your OS keychain via
+        <code>@napi-rs/keyring</code>. Project config files store
+        keychain references, not plaintext URLs. The DB tools are
+        read-only by default.</p>
+      </section>
+
+      <section>
+        <h2>Step 1 — inspect the current schema</h2>
+        <pre><code>&lcub;
+  "tool": "db_table_schema",
+  "args": &lcub; "schema": "public", "table": "organizations" &rcub;
+&rcub;</code></pre>
+        <p>Returns columns, indexes, FKs, RLS state, triggers. Now the
+        agent (and you) know exactly what shape the table is and which
+        columns are nullable, generated, or constrained.</p>
+      </section>
+
+      <section>
+        <h2>Step 2 — read the existing RLS policies</h2>
+        <pre><code>&lcub;
+  "tool": "db_rls",
+  "args": &lcub; "schema": "public", "table": "organizations" &rcub;
+&rcub;</code></pre>
+        <p>You see all current policies. Useful before adding new ones —
+        you don't want to introduce a policy that overlaps or contradicts
+        an existing rule.</p>
+      </section>
+
+      <section>
+        <h2>Step 3 — find every app-code site that reads the table</h2>
+        <pre><code>&lcub;
+  "tool": "schema_usage",
+  "args": &lcub; "schema": "public", "object": "organizations" &rcub;
+&rcub;</code></pre>
+        <p>Returns every call site in the codebase that touches the
+        <code>organizations</code> table — Supabase
+        <code>.from("organizations")</code>, raw SQL strings, RPC calls,
+        and definition sites. This is your edit list.</p>
+      </section>
+
+      <section>
+        <h2>Step 4 — write the migration, then refresh Reef</h2>
+        <p>Write the SQL migration (column add + RLS policy add). Apply
+        it. Then tell Mako the DB schema changed:</p>
+        <pre><code>&lcub;
+  "tool": "db_reef_refresh",
+  "args": &lcub;&rcub;
+&rcub;</code></pre>
+        <p>Without this, subsequent queries to <code>db_table_schema</code>
+        and <code>schema_usage</code> would return stale results. With it,
+        the next call sees the new column.</p>
+      </section>
+
+      <section>
+        <h2>Step 5 — update the app code, then audit RLS posture</h2>
+        <p>Edit each call site from Step 3 to read/write the new column
+        as needed. Then sanity-check that you haven't introduced a
+        cross-tenant leak:</p>
+        <pre><code>&lcub;
+  "tool": "tenant_leak_audit",
+  "args": &lcub;&rcub;
+&rcub;</code></pre>
+        <p>Audits tenant-keyed tables and RLS posture across the
+        project. Flags tables where reads happen without a tenant
+        scope, RPCs that bypass RLS via <code>SECURITY DEFINER</code>,
+        and routes that touch tenant data without the expected guard.</p>
+      </section>
+
+      <section>
+        <h2>Variations</h2>
+        <ul>
+          <li><strong>RPC-heavy app:</strong> when the change touches a
+          <code>SECURITY DEFINER</code> function, also call
+          <code>db_rpc</code> on it. Read the function body before
+          editing — RPC behavior is not always obvious from the call
+          site.</li>
+          <li><strong>Generated types (Supabase):</strong> after the
+          migration, regenerate types
+          (<code>supabase gen types typescript ...</code>) and re-run
+          <code>db_reef_refresh</code> so Mako knows the new shape.</li>
+          <li><strong>CI guardrail:</strong> add
+          <code>git_precommit_check</code> to your pre-commit hook to
+          catch staged route auth and boundary regressions before they
+          land.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Tools used in this recipe</h2>
+        <ul>
+          <li><code>db_table_schema</code> — columns, indexes, FKs, RLS, triggers.</li>
+          <li><code>db_rls</code> — RLS state and policies for one table.</li>
+          <li><code>db_rpc</code> — function signature, return shape, security, source.</li>
+          <li><code>schema_usage</code> — find where a schema object is defined and referenced in app code.</li>
+          <li><code>tenant_leak_audit</code> — multi-tenant RLS posture audit.</li>
+          <li><code>db_reef_refresh</code> — replace Reef DB facts from the current schema snapshot.</li>
+          <li><code>db_ping</code> — verify database connectivity.</li>
+          <li><code>git_precommit_check</code> — staged auth/boundary checks.</li>
+        </ul>
+      </section>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="./auth-flow-tracing.html">How to trace an auth flow</a> — same toolkit, different path.</li>
+          <li><a href="./safe-refactoring.html">How to refactor safely</a></li>
+          <li><a href="../faq.html#postgres-aware">FAQ: make Claude Code aware of my Postgres schema</a></li>
+          <li><a href="../faq.html#supabase">FAQ: does agentmako support Supabase?</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

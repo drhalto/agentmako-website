@@ -1,0 +1,170 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How to add MCP to Cline (VS Code extension) · agentmako"
+  description="Wire agentmako into Cline (VS Code extension). Settings → MCP Servers, paste the snippet, reload. Local-first, Apache-2.0."
+  canonicalPath="/docs/cline.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — MCP setup for Cline (VS Code extension)."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Cline", "href": "/docs/cline.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Setup &middot; Cline</span>
+    <h1 style="margin-top:1rem;">Mako, meet <em>Cline</em>.</h1>
+    <h2 style="margin-top:1rem; font-size:1.1rem; font-weight:500; color:var(--fg-dim);">How to add an MCP server to Cline (VS Code)</h2>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server that drops
+      into Cline, the VS Code extension that runs autonomous coding tasks.
+      Cline already speaks MCP — adding Mako takes one settings panel and
+      a reload.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="prereq">
+          <h2 data-step="01">Prerequisites</h2>
+          <ul>
+            <li><strong>Node.js 20 or newer</strong></li>
+            <li><strong>VS Code</strong> with the <strong>Cline</strong> extension installed</li>
+            <li><strong>agentmako on PATH</strong></li>
+          </ul>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// install &amp; attach</span>
+              <button class="copy-inline" data-copy-target="cl-prereq">Copy</button>
+            </div>
+<pre id="cl-prereq"><span class="c-prompt">$</span> npm install -g agentmako
+<span class="c-prompt">$</span> cd /path/to/your/project
+<span class="c-prompt">$</span> agentmako connect . --no-db
+<span class="c-prompt">$</span> agentmako doctor</pre>
+          </div>
+        </section>
+
+        <section id="config">
+          <h2 data-step="02">Add the MCP server</h2>
+
+          <h3>Through the Cline UI</h3>
+          <ol>
+            <li>Open the Cline panel in VS Code</li>
+            <li>Click the <strong>MCP Servers</strong> icon in the Cline header</li>
+            <li>Choose <strong>Configure MCP Servers</strong></li>
+            <li>Paste the snippet below into <code>cline_mcp_settings.json</code></li>
+            <li>Save — Cline reloads MCP servers automatically</li>
+          </ol>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// cline_mcp_settings.json</span>
+              <button class="copy-inline" data-copy-target="cl-json">Copy</button>
+            </div>
+<pre id="cl-json">&lcub;
+  <span class="c-key">"mcpServers"</span>: &lcub;
+    <span class="c-key">"mako-ai"</span>: &lcub;
+      <span class="c-key">"command"</span>: <span class="c-str">"agentmako"</span>,
+      <span class="c-key">"args"</span>: [<span class="c-str">"mcp"</span>],
+      <span class="c-key">"disabled"</span>: <span class="c-num">false</span>,
+      <span class="c-key">"autoApprove"</span>: [
+        <span class="c-str">"context_packet"</span>,
+        <span class="c-str">"reef_scout"</span>,
+        <span class="c-str">"repo_map"</span>,
+        <span class="c-str">"cross_search"</span>
+      ]
+    &rcub;
+  &rcub;
+&rcub;</pre>
+          </div>
+
+          <div class="callout">
+            <strong>autoApprove</strong>
+            Cline asks for permission before each tool call by default.
+            For read-only Mako tools that's friction, not safety — the
+            <code>autoApprove</code> list above lets the obvious-safe tools
+            run without prompts. Leave write-capable tools off the list.
+          </div>
+        </section>
+
+        <section id="verify">
+          <h2 data-step="03">Verify in Cline</h2>
+          <p>Open the Cline panel. The MCP Servers icon should show
+          <code>mako-ai</code> with a green status. Click it to expand the
+          tool list and confirm <code>context_packet</code>, <code>reef_scout</code>,
+          and friends are present.</p>
+        </section>
+
+        <section id="first">
+          <h2 data-step="04">First task</h2>
+          <p>Start a new Cline task in the workspace where you ran
+          <code>agentmako connect</code>:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// prompt</span>
+            </div>
+<pre>Before doing anything else, call the <span class="c-str">mako-ai</span> server's
+<span class="c-str">context_packet</span> tool with this query:
+
+  <span class="c-str">"refactor the auth callback to use PKCE"</span>
+
+Report what the packet returned, then plan your edits.
+Do not grep — Mako already indexed this repo.</pre>
+          </div>
+        </section>
+
+        <section id="instructions">
+          <h2 data-step="05">Custom instructions</h2>
+          <p>Cline supports custom instructions that ride with every task.
+          Add this to <strong>Cline → Settings → Custom Instructions</strong>:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// custom instructions</span>
+              <button class="copy-inline" data-copy-target="cl-instr">Copy</button>
+            </div>
+<pre id="cl-instr">When working in a project that has the <span class="c-str">mako-ai</span> MCP server
+available, ALWAYS call <span class="c-str">context_packet</span> or <span class="c-str">reef_scout</span>
+before searching with grep or reading files speculatively.
+
+Use <span class="c-str">context_packet</span> for concrete coding tasks (returns the
+target file, routes, and "read next" pointers). Use
+<span class="c-str">reef_scout</span> for exploratory questions (returns ranked
+candidates with reasons).
+
+Only fall back to grep if Mako returns no candidates.</pre>
+          </div>
+
+          <p>The full guidance from
+          <a href="https://github.com/drhalto/agentmako/blob/main/AGENTS.md">agentmako/AGENTS.md</a>
+          also works as a drop-in for Cline's instruction field.</p>
+        </section>
+
+        <section id="trouble">
+          <h2 data-step="06">Troubleshooting</h2>
+
+          <h3>mako-ai shows red in the MCP panel</h3>
+          <p>Click it to expand the error. Most common: VS Code launched
+          before <code>agentmako</code> was on PATH. Reload the window
+          (<kbd>⌘ ⇧ P</kbd> → "Developer: Reload Window").</p>
+
+          <h3>Tools call but return "no project attached"</h3>
+          <p>Cline runs in the workspace's working directory. If your
+          attached project is a different folder than the workspace, open
+          that folder as the workspace, or run <code>agentmako connect .</code>
+          again from the new working directory.</p>
+
+          <h3>Slow first response</h3>
+          <p>Initial repo indexing happens once on <code>agentmako connect</code>.
+          Subsequent <code>context_packet</code> calls are fast.</p>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

@@ -1,0 +1,177 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How to trace an auth flow with agentmako · agentmako"
+  description="A walkthrough recipe — bug report says 'manager role check is failing.' Use auth_path, route_trace, db_rls, and reef_inspect to find the bug instead of grepping."
+  canonicalPath="/docs/recipes/auth-flow-tracing.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — auth flow tracing recipe."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Recipes", "href": "/docs/recipes/"}, {"name": "Trace an auth flow", "href": "/docs/recipes/auth-flow-tracing.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Recipe &middot; Auth flow</span>
+    <h1 style="margin-top:1rem;">How to <em>trace an auth flow</em> with agentmako</h1>
+    <p class="doc-hero__sub">
+      <strong>TL;DR:</strong> Bug report says "manager role check is
+      failing." Instead of grepping for <code>role</code> and reading
+      twelve files, use <code>auth_path</code> → <code>route_trace</code>
+      → <code>db_rls</code> → <code>file_findings</code> to pinpoint the
+      bug in four tool calls. Tools used: <code>auth_path</code>,
+      <code>route_trace</code>, <code>route_context</code>,
+      <code>db_rls</code>, <code>file_findings</code>,
+      <code>reef_inspect</code>.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <section>
+        <h2>The bug report</h2>
+        <p>You get a Linear ticket: "Onboarding for managers is broken.
+        Some new managers see a 403 on <code>/api/manager/onboarding</code>
+        but other managers in the same district can complete the flow."</p>
+        <p>You don't know this part of the code well. The agent doesn't
+        know it at all.</p>
+      </section>
+
+      <section>
+        <h2>The vanilla approach (and why it falls over)</h2>
+        <p>Without agentmako, the agent's first ten moves look like:</p>
+        <pre><code>$ rg -n "manager onboarding" .
+$ rg -n "/api/manager" app/
+$ ls app/api/manager
+$ cat app/api/manager/onboarding/route.ts
+$ rg -n "role" lib/auth/
+$ cat lib/auth/dal.ts
+$ cat lib/auth/roles.ts
+$ rg -n "district" lib/
+... etc.</code></pre>
+        <p>That's 5,000+ tokens of grep output and file reads before the
+        agent has a hypothesis. Worse, it has no idea whether
+        <code>admin_audit_log</code>, <code>manager_district</code>, or
+        <code>onboarding_state</code> are RLS-sensitive — so even if it
+        finds the role check, it'll miss the row-level-security policy
+        that's actually blocking some managers.</p>
+      </section>
+
+      <section>
+        <h2>The agentmako approach</h2>
+        <p>Four targeted tool calls instead of grep loops.</p>
+
+        <h3>Step 1 — <code>auth_path</code></h3>
+        <p>Ask "what's the auth boundary on this route?" before reading
+        any code.</p>
+        <pre><code>&lcub;
+  "tool": "auth_path",
+  "args": &lcub;
+    "route": "/api/manager/onboarding",
+    "verb": "POST"
+  &rcub;
+&rcub;</code></pre>
+        <p>Returns the route → likely auth-guard files →
+        <code>verifySession</code>/<code>requireRole</code> call sites →
+        relevant tables. You now know that the role check lives in
+        <code>lib/auth/dal.ts:resolveManagerScope</code> and the data
+        access is in <code>app/api/manager/onboarding/route.ts</code>.</p>
+
+        <h3>Step 2 — <code>route_trace</code></h3>
+        <pre><code>&lcub;
+  "tool": "route_trace",
+  "args": &lcub; "route": "/api/manager/onboarding", "verb": "POST" &rcub;
+&rcub;</code></pre>
+        <p>Returns the resolved handler file, the imports it pulls in, the
+        Supabase tables it touches via <code>.from()</code>, and any
+        related routes. You learn the handler reads
+        <code>manager_district</code> and writes
+        <code>onboarding_state</code>.</p>
+
+        <h3>Step 3 — <code>db_rls</code> on the touched tables</h3>
+        <pre><code>&lcub;
+  "tool": "db_rls",
+  "args": &lcub; "schema": "public", "table": "manager_district" &rcub;
+&rcub;</code></pre>
+        <p>Returns RLS state and policy bodies. Here's where the bug
+        usually hides: a policy that checks
+        <code>auth.uid() = user_id</code> when it should check
+        <code>auth.uid() IN (SELECT manager_id FROM district_managers WHERE district_id = manager_district.district_id)</code>.</p>
+
+        <h3>Step 4 — <code>file_findings</code> before editing</h3>
+        <pre><code>&lcub;
+  "tool": "file_findings",
+  "args": &lcub; "filePath": "lib/auth/dal.ts", "limit": 20 &rcub;
+&rcub;</code></pre>
+        <p>Reef returns existing findings on this file. Maybe someone has
+        already noted "missing tenant scope on resolveManagerScope" with
+        an explanation. Don't redo that analysis — read it.</p>
+
+        <h3>Optional — <code>reef_inspect</code></h3>
+        <pre><code>&lcub;
+  "tool": "reef_inspect",
+  "args": &lcub; "subjectKind": "file", "subjectId": "lib/auth/dal.ts" &rcub;
+&rcub;</code></pre>
+        <p>Full evidence trail: facts, findings, recent diagnostic runs,
+        and any acks. If there's an ack saying "we know this looks weird,
+        it's intentional because X" — read that before changing the
+        code.</p>
+      </section>
+
+      <section>
+        <h2>The fix</h2>
+        <p>Now the agent has the context it needs to actually edit. The
+        route handler doesn't call <code>resolveManagerScope</code>
+        before the database read; the RLS policy on
+        <code>manager_district</code> is correct but the handler is
+        querying with the user's session role rather than the resolved
+        manager scope. One-line fix in the handler.</p>
+
+        <p>Total tool calls: 4-5. Total tokens of context: roughly 1,200.
+        Compare to the vanilla path: 12,000+ tokens before any hypothesis.</p>
+      </section>
+
+      <section>
+        <h2>Variations</h2>
+        <ul>
+          <li><strong>Cross-tenant audit:</strong> swap <code>db_rls</code>
+          for <code>tenant_leak_audit</code> when you suspect the bug is
+          systemic across tenant-keyed tables.</li>
+          <li><strong>Frontend-only auth bug:</strong> start with
+          <code>route_context</code> instead of <code>auth_path</code> —
+          it returns the surrounding layout, middleware, and client/server
+          boundary checks.</li>
+          <li><strong>Pre-commit gate:</strong> after the fix, run
+          <code>git_precommit_check</code> to catch any boundary
+          regressions in the staged diff.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Tools used in this recipe</h2>
+        <ul>
+          <li><code>auth_path</code> — trace likely auth boundaries for a route, file, or feature.</li>
+          <li><code>route_trace</code> — trace a route to its handler, files, and nearby evidence.</li>
+          <li><code>route_context</code> — return route resolution and route neighborhood.</li>
+          <li><code>db_rls</code> — RLS enabled state and policies for one table.</li>
+          <li><code>file_findings</code> — durable findings for a specific file before editing it.</li>
+          <li><code>reef_inspect</code> — full evidence trail for one file or subject.</li>
+          <li><code>tenant_leak_audit</code> — multi-tenant RLS posture audit.</li>
+          <li><code>git_precommit_check</code> — staged TS/TSX route auth and boundary checks.</li>
+        </ul>
+      </section>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="./database-aware-edits.html">How to make AI agents schema-aware (Postgres / Supabase)</a></li>
+          <li><a href="./safe-refactoring.html">How to refactor safely with AI</a></li>
+          <li><a href="../concepts/reef-engine.html">What is the Reef Engine?</a></li>
+          <li><a href="../faq.html#postgres-aware">FAQ: how do I make Claude Code aware of my Postgres schema?</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

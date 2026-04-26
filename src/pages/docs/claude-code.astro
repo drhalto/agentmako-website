@@ -1,0 +1,194 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How to add an MCP server to Claude Code · agentmako"
+  description="Wire agentmako into Claude Code in five minutes. claude mcp add, plain MCP wiring, or the bundled mako-ai plugin with discovery, trace, graph, and database skills."
+  canonicalPath="/docs/claude-code.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — MCP setup for Claude Code."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Claude Code", "href": "/docs/claude-code.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Setup &middot; Claude Code</span>
+    <h1 style="margin-top:1rem;">Mako, meet <em>Claude Code</em>.</h1>
+    <h2 style="margin-top:1rem; font-size:1.1rem; font-weight:500; color:var(--fg-dim);">How to add an MCP server to Claude Code in five minutes</h2>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server you can wire
+      into Claude Code in one command. Two paths. <strong>Plain MCP</strong>
+      if you just want the tools. <strong>Plugin</strong> if you want
+      Claude Code to load Mako-specific skills that tell it <em>when</em>
+      to call which tool.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="prereq">
+          <h2 data-step="01">Prerequisites</h2>
+          <ul>
+            <li><strong>Node.js 20 or newer</strong> (<code>node -v</code>)</li>
+            <li><strong>Claude Code</strong> installed and signed in</li>
+            <li><strong>agentmako on PATH</strong> — install globally below</li>
+          </ul>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// install &amp; attach</span>
+              <button class="copy-inline" data-copy-target="cc-prereq">Copy</button>
+            </div>
+<pre id="cc-prereq"><span class="c-prompt">$</span> npm install -g agentmako
+<span class="c-prompt">$</span> cd /path/to/your/project
+<span class="c-prompt">$</span> agentmako connect . --no-db
+<span class="c-prompt">$</span> agentmako doctor</pre>
+          </div>
+          <p>You should see green checks for config, the local API service, and indexing.</p>
+        </section>
+
+        <section id="mcp">
+          <h2 data-step="02">Wire MCP</h2>
+          <p>Add the Mako MCP server to Claude Code. Easiest is the CLI:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// from your project root</span>
+              <button class="copy-inline" data-copy-target="cc-add">Copy</button>
+            </div>
+<pre id="cc-add"><span class="c-prompt">$</span> claude mcp add mako-ai agentmako mcp</pre>
+          </div>
+
+          <p>Or paste this into your Claude Code MCP config manually:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// json</span>
+              <button class="copy-inline" data-copy-target="cc-json">Copy</button>
+            </div>
+<pre id="cc-json">&lcub;
+  <span class="c-key">"mcpServers"</span>: &lcub;
+    <span class="c-key">"mako-ai"</span>: &lcub;
+      <span class="c-key">"command"</span>: <span class="c-str">"agentmako"</span>,
+      <span class="c-key">"args"</span>: [<span class="c-str">"mcp"</span>]
+    &rcub;
+  &rcub;
+&rcub;</pre>
+          </div>
+
+          <div class="callout">
+            <strong>Where this lives</strong>
+            User-scoped settings (<code>~/.claude.json</code> on macOS/Linux,
+            <code>%USERPROFILE%\.claude.json</code> on Windows), or
+            <code>.mcp.json</code> at the project root for project-scoped servers.
+            Use <code>claude mcp list</code> to confirm.
+          </div>
+        </section>
+
+        <section id="verify">
+          <h2 data-step="03">Verify in Claude Code</h2>
+          <p>Restart Claude Code, then in the session run:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// inside Claude Code</span>
+              <button class="copy-inline" data-copy-target="cc-verify">Copy</button>
+            </div>
+<pre id="cc-verify">/mcp</pre>
+          </div>
+
+          <p>You should see <code>mako-ai</code> listed as <strong>connected</strong>.
+          You can also expand it to see registered tools — <code>context_packet</code>,
+          <code>reef_scout</code>, <code>repo_map</code>, <code>cross_search</code>, and friends.</p>
+        </section>
+
+        <section id="plugin">
+          <h2 data-step="04">Optional: install the plugin</h2>
+          <p>The bundled plugin adds Mako-specific Claude skills and ships
+          its own <code>.mcp.json</code>, so you can skip the manual MCP step
+          if you go this route.</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// from the agentmako repo root</span>
+              <button class="copy-inline" data-copy-target="cc-plugin">Copy</button>
+            </div>
+<pre id="cc-plugin"><span class="c-prompt">$</span> claude plugin validate ./mako-ai-claude-plugin
+<span class="c-prompt">$</span> claude --plugin-dir ./mako-ai-claude-plugin</pre>
+          </div>
+
+          <p>Inside Claude Code these skills become available:</p>
+          <ul>
+            <li><code>/mako-ai:mako-guide</code> — entry point and tool selection</li>
+            <li><code>/mako-ai:mako-discovery</code> — find files, symbols, routes</li>
+            <li><code>/mako-ai:mako-trace</code> — call graphs and references</li>
+            <li><code>/mako-ai:mako-neighborhoods</code> — related code clusters</li>
+            <li><code>/mako-ai:mako-graph</code> — dependencies and imports</li>
+            <li><code>/mako-ai:mako-database</code> — Postgres / Supabase schema</li>
+            <li><code>/mako-ai:mako-code-intel</code> — diagnostics &amp; ESLint/Biome state</li>
+            <li><code>/mako-ai:mako-workflow</code> — multi-step playbooks</li>
+          </ul>
+        </section>
+
+        <section id="first">
+          <h2 data-step="05">First task</h2>
+          <p>Inside Claude Code, ask the agent something concrete and let
+          it use Mako. Try:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// prompt</span>
+            </div>
+<pre>Use the mako-ai context_packet tool first.
+Task: <span class="c-str">"figure out how the auth callback works in this repo"</span>.
+Show me what context_packet returned before reading any files.</pre>
+          </div>
+
+          <p>You should see Claude call <code>context_packet</code>, get back
+          a typed packet (target file, routes, touched symbols, findings, "read next"),
+          and then proceed with that as a starting point instead of grep.</p>
+        </section>
+
+        <section id="agents-md">
+          <h2 data-step="06">Tell Claude when to use Mako</h2>
+          <p>Without guidance, Claude will default to its built-in tools.
+          Drop the contents of <a href="https://github.com/drhalto/agentmako/blob/main/AGENTS.md">AGENTS.md</a>
+          into your project's <code>CLAUDE.md</code> so the rules ride with the repo.</p>
+
+          <div class="callout">
+            <strong>Why this matters</strong>
+            The MCP tools are only as useful as the agent's choice to call them. Telling
+            Claude in <code>CLAUDE.md</code> "before grepping, call <code>context_packet</code>"
+            is the difference between a helpful tool and an ignored one.
+          </div>
+        </section>
+
+        <section id="trouble">
+          <h2 data-step="07">Troubleshooting</h2>
+
+          <h3>mako-ai shows as failed in /mcp</h3>
+          <p>Run <code>agentmako doctor</code> in your shell. If <code>agentmako</code> is
+          not on PATH, reinstall: <code>npm install -g agentmako</code> and restart Claude Code
+          so it picks up the updated PATH.</p>
+
+          <h3>Tools list is empty</h3>
+          <p>You probably haven't attached a project. From the project directory:
+          <code>agentmako connect . --no-db</code> then restart Claude Code.</p>
+
+          <h3>It works but Claude isn't using it</h3>
+          <p>See section 06. Without explicit instructions in <code>CLAUDE.md</code>,
+          Claude will reach for grep first. Tell it otherwise.</p>
+
+          <h3>Database tools missing</h3>
+          <p>Database awareness is opt-in. Run <code>agentmako connect .</code>
+          (interactive) and provide a <code>DATABASE_URL</code>, or use
+          <code>--db-env DATABASE_URL --yes</code> in CI.</p>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

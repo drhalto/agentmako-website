@@ -1,0 +1,269 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="What is the Model Context Protocol (MCP)? · agentmako"
+  description="MCP (Model Context Protocol) is an open stdio standard from Anthropic that lets AI coding agents call external tools. Here's how it works, why it exists, and how agentmako uses it."
+  canonicalPath="/docs/concepts/mcp.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — MCP concept explainer."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Concepts", "href": "/docs/concepts/"}, {"name": "Model Context Protocol", "href": "/docs/concepts/mcp.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Concept &middot; MCP</span>
+    <h1 style="margin-top:1rem;">What is the <em>Model Context Protocol</em>?</h1>
+    <p class="doc-hero__sub">
+      <strong>The Model Context Protocol (MCP) is an open, stdio-based
+      standard introduced by Anthropic that lets AI coding agents call
+      external tools.</strong> It turns "AI agent + custom tooling" into a
+      plug-and-play ecosystem — one server, every compatible client.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="tldr">
+          <h2>TL;DR</h2>
+          <p>MCP (Model Context Protocol) is a JSON-RPC-over-stdio standard
+          from Anthropic that lets a coding agent (Claude Code, Codex CLI,
+          Cursor, Cline, Continue.dev, and many others) call tools exposed by
+          a separate process. The agent spawns the MCP server, talks to it on
+          stdin/stdout, and exposes the tools to the model. Build one server,
+          plug it into every agent.</p>
+        </section>
+
+        <section id="origin">
+          <h2>Where MCP came from</h2>
+          <p>Anthropic published the MCP specification in late 2024. The
+          official spec lives at
+          <a href="https://spec.modelcontextprotocol.io/" rel="noopener">spec.modelcontextprotocol.io</a>.
+          Before MCP, every coding agent had to invent its own tool-calling
+          mechanism — Claude Code had one, Cursor had a different one, every
+          other agent had a third. Tool authors paid the cost of writing N
+          adapters for N clients.</p>
+
+          <p>MCP changes that. The spec defines how a client discovers
+          tools, how it calls them, how results come back, and how errors
+          propagate. Any agent that speaks MCP can talk to any server that
+          speaks MCP — the same way HTTP lets any browser talk to any web
+          server.</p>
+        </section>
+
+        <section id="how">
+          <h2>How MCP actually works</h2>
+          <p>Three pieces:</p>
+
+          <ul>
+            <li><strong>Client:</strong> the agent harness (Claude Code,
+            Codex, Cursor, Cline). It spawns the server process and reads
+            its capabilities.</li>
+            <li><strong>Transport:</strong> stdio. The client writes
+            JSON-RPC messages to the server's stdin and reads responses from
+            stdout. There's also an SSE/HTTP transport in the spec, but
+            stdio is the dominant one for local tools.</li>
+            <li><strong>Server:</strong> the process that exposes tools.
+            <code>agentmako mcp</code> is one example. It registers a list
+            of typed tools at startup, waits for calls, and returns
+            structured results.</li>
+          </ul>
+
+          <p>A typical exchange:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// JSON-RPC over stdin/stdout</span>
+            </div>
+<pre>// client → server
+&lcub;<span class="c-key">"jsonrpc"</span>:<span class="c-str">"2.0"</span>,<span class="c-key">"method"</span>:<span class="c-str">"tools/list"</span>,<span class="c-key">"id"</span>:1&rcub;
+
+// server → client
+&lcub;<span class="c-key">"jsonrpc"</span>:<span class="c-str">"2.0"</span>,<span class="c-key">"id"</span>:1,<span class="c-key">"result"</span>:&lcub;<span class="c-key">"tools"</span>:[
+  &lcub;<span class="c-key">"name"</span>:<span class="c-str">"context_packet"</span>,<span class="c-key">"inputSchema"</span>:&lcub;...&rcub;&rcub;,
+  &lcub;<span class="c-key">"name"</span>:<span class="c-str">"reef_scout"</span>,<span class="c-key">"inputSchema"</span>:&lcub;...&rcub;&rcub;
+]&rcub;&rcub;
+
+// client → server
+&lcub;<span class="c-key">"jsonrpc"</span>:<span class="c-str">"2.0"</span>,<span class="c-key">"method"</span>:<span class="c-str">"tools/call"</span>,<span class="c-key">"params"</span>:&lcub;
+  <span class="c-key">"name"</span>:<span class="c-str">"context_packet"</span>,
+  <span class="c-key">"arguments"</span>:&lcub;<span class="c-key">"request"</span>:<span class="c-str">"trace the auth callback"</span>&rcub;
+&rcub;,<span class="c-key">"id"</span>:2&rcub;</pre>
+          </div>
+
+          <p>The model never speaks MCP directly. The harness sees the
+          tools list, decides which to call based on the user prompt, and
+          forwards the call to the server. The server's response comes back
+          as a tool result, which the model then reads.</p>
+        </section>
+
+        <section id="why">
+          <h2>Why one server, every agent matters</h2>
+          <p>Without MCP, a tool like <code>agentmako</code> would need
+          custom integrations for Claude Code, Cursor, Codex, Cline, and
+          every other agent. Each integration would drift independently.
+          Each would have its own auth model, its own input/output shape,
+          its own restart semantics.</p>
+
+          <p>With MCP, agentmako ships one server. It registers in
+          <code>~/.claude.json</code> for Claude Code, <code>~/.codex/config.toml</code>
+          for Codex, <code>.cursor/mcp.json</code> for Cursor, and a Cline
+          settings panel — but the server binary is the same in all four
+          cases. New agents that adopt MCP get agentmako support for free.</p>
+
+          <p>For a coding-intelligence server, the value compounds: the
+          same indexed graph of routes, schemas, and findings is available
+          everywhere the developer works.</p>
+        </section>
+
+        <section id="not">
+          <h2>What MCP is not</h2>
+          <ul>
+            <li><strong>Not a model.</strong> MCP doesn't ship inference.
+            It's plumbing for tool calls.</li>
+            <li><strong>Not a hosted service.</strong> The default transport
+            is stdio. Most MCP servers (including agentmako) run entirely
+            locally.</li>
+            <li><strong>Not Anthropic-only.</strong> The spec is open. OpenAI's
+            Codex CLI, Cursor (Anysphere), Cline, and many others implement
+            it.</li>
+            <li><strong>Not a vector database.</strong> An MCP server can
+            implement vector search if it wants to, but the protocol itself
+            says nothing about retrieval strategy.</li>
+          </ul>
+        </section>
+
+        <section id="agentmako">
+          <h2>agentmako as an MCP server</h2>
+          <p>agentmako is a local-first MCP server purpose-built for code
+          intelligence. It indexes your repo into local SQLite, snapshots
+          your Postgres or Supabase schema (when configured), tracks
+          diagnostics across runs, and exposes <strong>85 typed tools</strong>
+          ranging from <code>context_packet</code> (vague request → ranked
+          context) to <code>route_trace</code> (URL → handler → schema) to
+          <code>db_rls</code> (table → row-level-security policies).</p>
+
+          <p>The MCP layer is what makes those tools available everywhere.
+          The agent doesn't care which language they're written in, where
+          they store their data, or how the index works — it just sees the
+          tools list and calls what fits.</p>
+
+          <p>Install:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// quickstart</span>
+            </div>
+<pre><span class="c-prompt">$</span> npm install -g agentmako
+<span class="c-prompt">$</span> cd /path/to/your/project
+<span class="c-prompt">$</span> agentmako connect . --no-db
+<span class="c-prompt">$</span> agentmako mcp        <span class="c-comment"># speak MCP on stdio</span></pre>
+          </div>
+
+          <p>Then add the server to your agent. Setup guides:
+          <a href="../claude-code.html">Claude Code</a>,
+          <a href="../codex.html">Codex CLI</a>,
+          <a href="../cursor.html">Cursor</a>,
+          <a href="../cline.html">Cline</a>.</p>
+        </section>
+
+        <section id="vs-alternatives">
+          <h2>MCP vs. other integration approaches</h2>
+          <p>Before MCP, "give the agent a tool" usually meant one of
+          three things. Each has tradeoffs MCP is built to avoid:</p>
+
+          <ul>
+            <li><strong>Per-agent plugin SDKs.</strong> Claude Code had
+            one, Cursor had another, Continue had a third. You wrote N
+            adapters for N agents. Each adapter drifted. MCP makes the
+            tool author the single source — write once.</li>
+            <li><strong>Shell-out to a CLI.</strong> The agent runs a
+            command, parses stdout. Works, but the contract is a string
+            — no schema, no introspection, no error model. MCP gives
+            tools typed input/output schemas the agent reads at startup.</li>
+            <li><strong>HTTP API for everything.</strong> Spin up a
+            local web server, give the agent a base URL. Now you have
+            ports, auth, CORS, lifecycle, and a hosted service to run
+            even when nothing else is running. MCP runs as a child
+            process of the agent, no networking required.</li>
+          </ul>
+
+          <p>The MCP server design follows the same logic as a Unix
+          tool: do one thing, communicate over stdio, exit when the
+          parent closes. That's why most MCP servers are 50-line
+          wrappers around an existing library — the protocol gets out
+          of the way.</p>
+        </section>
+
+        <section id="protocol-notes">
+          <h2>Protocol notes worth knowing</h2>
+          <ul>
+            <li><strong>Initialization is two-step.</strong> The client
+            sends <code>initialize</code> with its capabilities, the
+            server responds with its own. Then the client sends
+            <code>initialized</code> as the handshake. Tools aren't
+            available until that handshake completes.</li>
+            <li><strong>Tool calls are JSON-RPC requests.</strong> The
+            client sends <code>tools/call</code> with name + arguments,
+            the server replies with content (text, image, resource).
+            Errors come back as JSON-RPC error objects, not exceptions.</li>
+            <li><strong>Streaming is optional.</strong> A tool can
+            stream progress notifications during a long call. Most
+            agents render these as inline status updates.</li>
+            <li><strong>The transport is reusable.</strong> stdio is
+            default, but the spec also defines an SSE/HTTP transport
+            for remote tools. agentmako uses stdio — the local-first
+            assumption is baked in.</li>
+            <li><strong>Tool discovery is static, not dynamic.</strong>
+            The client gets the tool list once at startup. If the
+            server adds a new tool mid-session, the client won't see it
+            until reconnect. Restart the agent after upgrading the
+            server.</li>
+          </ul>
+        </section>
+
+        <section id="pitfalls">
+          <h2>Common pitfalls</h2>
+          <ul>
+            <li><strong>Wrong PATH at agent launch.</strong> The agent
+            inherits PATH from the shell that launched it. If you
+            installed agentmako in a terminal but launched the agent
+            from a desktop shortcut, PATH may not include the npm
+            global bin. Run the agent from the same shell, or restart
+            after install.</li>
+            <li><strong>Tools listed but never called.</strong> The
+            agent decides when to call MCP tools based on prompts.
+            Without explicit guidance (CLAUDE.md / AGENTS.md), it
+            defaults to its built-in tools. Tell it which Mako tools
+            to reach for and when.</li>
+            <li><strong>Configuring the server but not restarting the
+            agent.</strong> MCP discovery happens at startup. Editing
+            <code>~/.claude.json</code> or <code>.cursor/mcp.json</code>
+            without restarting means the agent is still talking to the
+            old config.</li>
+            <li><strong>Multiple servers, same tool name.</strong> If
+            two servers expose a tool called <code>search</code>, the
+            agent can't disambiguate. agentmako prefixes its tools with
+            <code>mako-ai__</code> via the server name in your config —
+            keep server names unique.</li>
+          </ul>
+        </section>
+
+        <section id="related">
+          <h2>Related</h2>
+          <ul>
+            <li><a href="./context-packets.html">What is a context packet?</a> — the deterministic shape that <code>context_packet</code> returns.</li>
+            <li><a href="./reef-engine.html">What is the Reef Engine?</a> — the durable fact and finding layer behind Mako tools.</li>
+            <li><a href="./freshness.html">How agentmako tracks freshness</a> — how Mako labels evidence as live, fresh_indexed, stale, contradicted, or unknown.</li>
+            <li><a href="../faq.html">agentmako FAQ</a> — common questions about MCP servers and codebase context.</li>
+            <li><a href="https://spec.modelcontextprotocol.io/" rel="noopener">Official MCP spec</a> — the standard itself.</li>
+          </ul>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

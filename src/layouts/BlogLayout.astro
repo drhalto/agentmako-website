@@ -1,0 +1,140 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import '../styles/docs.css';
+import '../styles/shared.css';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath?: string;
+  ogImage?: string;
+  ogImageAlt?: string;
+  publishedAt: string;        // ISO 8601 date
+  updatedAt?: string;
+  author?: string;
+  tags?: string[];
+  readingTimeMin?: number;
+}
+
+const {
+  title,
+  description,
+  canonicalPath,
+  ogImage,
+  ogImageAlt,
+  publishedAt,
+  updatedAt,
+  author = 'Dustin Hightower',
+  tags = [],
+  readingTimeMin,
+} = Astro.props;
+
+const site = Astro.site!.toString().replace(/\/$/, '');
+const defaultOgImage = '/assets/og.png';
+const articleJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: title,
+  description,
+  image: site + (ogImage ?? defaultOgImage),
+  datePublished: publishedAt,
+  dateModified: updatedAt ?? publishedAt,
+  author: {
+    '@type': 'Person',
+    name: author,
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'agentmako',
+    logo: {
+      '@type': 'ImageObject',
+      url: site + '/assets/site-files/android-chrome-512x512.png',
+    },
+  },
+  mainEntityOfPage: site + (canonicalPath ?? Astro.url.pathname),
+  keywords: tags.join(', '),
+};
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+const formattedDate = formatDate(publishedAt);
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <BaseHead
+    title={title + ' · agentmako blog'}
+    description={description}
+    canonicalPath={canonicalPath}
+    ogImage={ogImage}
+    ogImageAlt={ogImageAlt}
+    ogType="article"
+  />
+  <script type="application/ld+json" set:html={JSON.stringify(articleJsonLd)} />
+  <slot name="head" />
+</head>
+<body>
+  <Nav />
+
+  <article class="blog-post">
+    <header class="blog-post__header">
+      <div class="blog-post__shell">
+        <a class="blog-post__back" href="/blog/">&larr; Blog</a>
+        <h1 class="blog-post__title">{title}</h1>
+        <p class="blog-post__lede">{description}</p>
+        <div class="blog-post__meta">
+          <time datetime={publishedAt}>{formattedDate}</time>
+          {readingTimeMin && <span class="blog-post__sep">·</span>}
+          {readingTimeMin && <span>{readingTimeMin} min read</span>}
+          {tags.length > 0 && <span class="blog-post__sep">·</span>}
+          {tags.map((t) => <span class="blog-post__tag">{t}</span>)}
+        </div>
+      </div>
+    </header>
+
+    <div class="blog-post__body">
+      <div class="blog-post__shell">
+        <div class="doc-body">
+          <slot />
+        </div>
+      </div>
+    </div>
+
+    <div class="blog-post__cta">
+      <div class="blog-post__shell">
+        <h3>Want this for your codebase?</h3>
+        <p>agentmako is local-first, Apache-2.0, and works with every MCP-compatible coding agent.</p>
+        <div class="blog-post__cta-actions">
+          <button class="am-cmd" type="button" data-copy="npm install -g agentmako" aria-label="Copy install command">
+            <span class="am-cmd__prompt">$</span>
+            <span class="am-cmd__text">npm install -g agentmako</span>
+            <span class="am-cmd__action">
+              <svg class="am-cmd__icon-copy" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <svg class="am-cmd__icon-check" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              <span class="am-cmd__label">copy</span>
+            </span>
+          </button>
+          <a class="am-btn am-btn-ghost am-btn-sm" href="/docs/">Read the docs &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <Footer />
+  <script src="/main.js" defer></script>
+</body>
+</html>

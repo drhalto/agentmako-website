@@ -1,0 +1,71 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="agentmako concepts — MCP, context packets, Reef Engine, freshness"
+  description="The core concepts behind agentmako — MCP, context packets, the Reef Engine, and the freshness model. Read these to understand how Mako thinks about a codebase."
+  canonicalPath="/docs/concepts/"
+  ogImage="/assets/og.png"
+  ogType="website"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Concepts", "href": "/docs/concepts/"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Concepts</span>
+    <h1 style="margin-top:1rem;">How <em>agentmako</em> thinks about a codebase.</h1>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server for AI coding
+      agents. Four short concept pages explain the model behind it: the
+      protocol it speaks, the shape of the context it returns, the durable
+      memory layer underneath, and how it tracks what is still fresh.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="agents" style="margin-top:1rem;">
+      <a class="agent-card" href="./mcp.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Model Context Protocol</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Concept</span><span>Standard</span></div>
+        <p class="agent-card__desc">
+          What MCP is, where it came from, and why one server can run
+          against every coding agent.
+        </p>
+      </a>
+      <a class="agent-card" href="./context-packets.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Context packets</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Concept</span><span>Determinism</span></div>
+        <p class="agent-card__desc">
+          The structured shape returned by <code>context_packet</code> —
+          ranked files, related context, active findings, read-next.
+        </p>
+      </a>
+      <a class="agent-card" href="./reef-engine.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Reef Engine</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Concept</span><span>Memory</span></div>
+        <p class="agent-card__desc">
+          Durable facts and findings that persist across agent sessions.
+        </p>
+      </a>
+      <a class="agent-card" href="./freshness.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Freshness model</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Concept</span><span>Trust</span></div>
+        <p class="agent-card__desc">
+          live, fresh_indexed, stale, contradicted, unknown — and why
+          stable answers are not the same as fresh ones.
+        </p>
+      </a>
+    </div>
+  </div>
+</section>
+</DocLayout>

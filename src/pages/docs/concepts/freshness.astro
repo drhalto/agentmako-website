@@ -1,0 +1,300 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How agentmako tracks freshness · agentmako"
+  description="agentmako labels every piece of evidence — file facts, indexed symbols, schema rows, diagnostic findings — with a freshness state. Live, fresh_indexed, stale, contradicted, or unknown. Here's how the model works."
+  canonicalPath="/docs/concepts/freshness.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — freshness model explainer."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Concepts", "href": "/docs/concepts/"}, {"name": "Freshness", "href": "/docs/concepts/freshness.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Concept &middot; Freshness</span>
+    <h1 style="margin-top:1rem;">How <em>Mako</em> tracks freshness.</h1>
+    <p class="doc-hero__sub">
+      <strong>agentmako labels every piece of evidence with a freshness
+      state</strong> — <code>live</code>, <code>fresh_indexed</code>,
+      <code>stale</code>, <code>historical</code>, <code>contradicted</code>,
+      or <code>unknown</code>. The agent can choose to use stale data, but
+      it shouldn't be tricked into thinking stale data is current.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="tldr">
+          <h2>TL;DR</h2>
+          <p>The Reef Engine tags every fact, finding, and diagnostic row
+          with a freshness label. Tools like <code>evidence_confidence</code>
+          and <code>verification_state</code> expose those labels.
+          <code>context_packet</code> respects them. If you're returning
+          line numbers after edits, prefer <code>live_text_search</code> to
+          <code>cross_search</code>. If you suspect the index is wrong,
+          <code>project_index_refresh</code> with <code>mode: "if_stale"</code>
+          is the cheap fix; <code>mode: "force"</code> is the expensive one.</p>
+        </section>
+
+        <section id="states">
+          <h2>The freshness states</h2>
+          <table style="width:100%; border-collapse:collapse; margin-top:1rem; font-size:13.5px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--line);">
+                <th style="text-align:left; padding:8px;">State</th>
+                <th style="text-align:left; padding:8px;">What it means</th>
+                <th style="text-align:left; padding:8px;">Trust for editing?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--line);">
+                <td style="padding:8px;"><code>live</code></td>
+                <td style="padding:8px;">Came from a live read just now (filesystem, database).</td>
+                <td style="padding:8px;">Yes.</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--line);">
+                <td style="padding:8px;"><code>fresh_indexed</code></td>
+                <td style="padding:8px;">Indexed and the index hasn't been invalidated.</td>
+                <td style="padding:8px;">Yes, until disk changes.</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--line);">
+                <td style="padding:8px;"><code>stale</code></td>
+                <td style="padding:8px;">Indexed but the source file was edited since.</td>
+                <td style="padding:8px;">Read-only context only — verify before relying on line numbers.</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--line);">
+                <td style="padding:8px;"><code>historical</code></td>
+                <td style="padding:8px;">From a prior session; no claim about current state.</td>
+                <td style="padding:8px;">Treat as background context.</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--line);">
+                <td style="padding:8px;"><code>contradicted</code></td>
+                <td style="padding:8px;">A newer fact disagrees with this one.</td>
+                <td style="padding:8px;">No. Use the newer fact or refresh.</td>
+              </tr>
+              <tr>
+                <td style="padding:8px;"><code>unknown</code></td>
+                <td style="padding:8px;">Provenance is missing.</td>
+                <td style="padding:8px;">Verify before acting.</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="stale">
+          <h2>When the index goes stale</h2>
+          <p>The index is "fresh enough" until something changes. Common
+          stale-makers:</p>
+
+          <ul>
+            <li>You edited a file the index already knew about.</li>
+            <li>You added a new file the index hasn't seen.</li>
+            <li>The schema changed (migration ran, Supabase types
+            regenerated).</li>
+            <li>A diagnostic source ran and produced new findings.</li>
+          </ul>
+
+          <p><code>project_index_status</code> reports indexed vs. dirty
+          counts. Use it before trusting indexed line numbers after a
+          batch of edits.</p>
+        </section>
+
+        <section id="overlay">
+          <h2>The working_tree_overlay shortcut</h2>
+          <p>Sometimes you don't want a full reindex. You just want the
+          current state of a few files reflected without re-parsing
+          everything.</p>
+
+          <p><code>working_tree_overlay</code> snapshots working-tree file
+          facts (existence, size, hash) without touching the AST/imports/
+          routes/schema indexes. It's the cheap "I edited a file, please
+          notice" call. Subsequent <code>file_facts</code> /
+          <code>file_findings</code> reads use the overlay.</p>
+        </section>
+
+        <section id="refresh">
+          <h2>When to force a refresh</h2>
+          <p>Two refresh modes:</p>
+
+          <ul>
+            <li><strong><code>project_index_refresh &lcub; mode: "if_stale" &rcub;</code></strong>
+            — checks the index, refreshes only what changed. Cheap. Run
+            after a batch of edits or before relying on indexed answers.</li>
+            <li><strong><code>project_index_refresh &lcub; mode: "force" &rcub;</code></strong>
+            — full re-index. Use only when the indexed AST/search results
+            appear actually wrong, not just stale. Expensive on large
+            repos.</li>
+          </ul>
+
+          <p>For database facts: <code>db_reef_refresh</code> after
+          schema migrations or Supabase type regeneration.</p>
+        </section>
+
+        <section id="stable-vs-fresh">
+          <h2>Stable is not the same as fresh</h2>
+          <p>This is the most common mistake. A stable indexed answer —
+          one that comes back the same way every time — feels reliable.
+          But "stable" only means the index hasn't been refreshed; it does
+          not mean the index agrees with disk.</p>
+
+          <p>Two failure modes:</p>
+
+          <ul>
+            <li>You edit <code>lib/auth/dal.ts</code>, then ask the agent
+            for a line in that file. The cached
+            <code>cross_search</code> answer points at the old line. The
+            agent edits the wrong line.</li>
+            <li>You add a new route file, then ask "where's the handler
+            for /x?". The route table doesn't know about the new file
+            yet — the agent says "no handler exists."</li>
+          </ul>
+
+          <p>Defenses:</p>
+
+          <ul>
+            <li>Use <code>live_text_search</code> when you need exact
+            current text.</li>
+            <li>Use <code>working_tree_overlay</code> when you've edited
+            files but don't need a full re-index.</li>
+            <li>Check <code>project_index_status</code> before trusting
+            line numbers in indexed results.</li>
+            <li>Tell the agent (in <code>CLAUDE.md</code>) to prefer live
+            reads after edits, not stable indexed reads.</li>
+          </ul>
+        </section>
+
+        <section id="lifecycle">
+          <h2>How a piece of evidence ages</h2>
+          <p>Every fact in Reef has a small state machine attached.
+          Tools like <code>evidence_confidence</code> read these states
+          on demand:</p>
+
+          <pre><code>             ┌──────┐                           ┌──────────────┐
+   create →  │ live │ ── refresh →  fresh ─────→ │ fresh_indexed│
+             └──────┘                            └───────┬──────┘
+                                                         │
+                                            (file changes)
+                                                         │
+                                                         ▼
+                                                    ┌─────────┐
+                                                    │  stale  │
+                                                    └────┬────┘
+                                                         │
+                                  ┌── re-run, agrees ────┘
+                                  │
+                                  ▼                       │
+                          ┌──────────────┐                │
+                          │ fresh_indexed│   re-run, disagrees
+                          └──────────────┘                │
+                                                          ▼
+                                                  ┌─────────────┐
+                                                  │ contradicted│
+                                                  └─────────────┘</code></pre>
+
+          <p>Two notes worth tattooing on the agent's CLAUDE.md:</p>
+
+          <ul>
+            <li><strong>Stale is not wrong</strong> — it's "we haven't
+            re-checked." Use it as background context, not as ground
+            truth for line numbers.</li>
+            <li><strong>Contradicted is wrong</strong> — a newer fact
+            disagrees. Treat the older one as obsolete and trust the
+            newer fact (or refresh further).</li>
+          </ul>
+        </section>
+
+        <section id="working-with-stale">
+          <h2>Working with stale evidence on purpose</h2>
+          <p>Stale evidence isn't useless. It's just labeled. Three
+          patterns where stale-is-fine:</p>
+
+          <ul>
+            <li><strong>Repo orientation.</strong> "What does this file
+            roughly do?" — a stale symbol list is fine. The shape of
+            the codebase doesn't change between edits.</li>
+            <li><strong>Cross-file impact at the type level.</strong>
+            "Who imports this module?" — the import graph is stable
+            across small edits. Stale is close enough.</li>
+            <li><strong>Historical context.</strong> "Why was this
+            written this way?" — a stale finding from three weeks ago
+            answers it; live reads of current code don't.</li>
+          </ul>
+
+          <p>What stale evidence is <em>not</em> fine for:</p>
+
+          <ul>
+            <li>Line numbers in code you just edited.</li>
+            <li>Whether a finding still applies after a refactor.</li>
+            <li>Whether a database table still has the column you read
+            two hours ago.</li>
+          </ul>
+        </section>
+
+        <section id="freshness-policy">
+          <h2>The <code>freshnessPolicy</code> input</h2>
+          <p>Tools that read indexed evidence (<code>context_packet</code>,
+          <code>cross_search</code>, <code>repo_map</code>, etc.) accept
+          a <code>freshnessPolicy</code> argument:</p>
+
+          <ul>
+            <li><strong><code>"prefer_fresh"</code></strong> (default) —
+            return what the index has, but mark stale results as such.
+            Cheap.</li>
+            <li><strong><code>"require_fresh"</code></strong> — block
+            until the index is current. Triggers an
+            <code>if_stale</code> refresh under the hood. Slower but
+            line-numbers are reliable.</li>
+            <li><strong><code>"allow_stale"</code></strong> — return
+            anything, even contradicted rows. Useful for historical
+            queries and offline work.</li>
+          </ul>
+
+          <p>For most agent workflows, <code>"prefer_fresh"</code> is
+          correct: the agent gets fast answers and decides per-tool
+          whether stale labels matter.</p>
+        </section>
+
+        <section id="pitfalls">
+          <h2>Common pitfalls</h2>
+          <ul>
+            <li><strong>Treating "indexed" as "checked."</strong>
+            Indexed means "we read this file once." Diagnostics like
+            lint and tsc run separately. A file with
+            <code>freshness: fresh_indexed</code> may still have stale
+            <em>diagnostic</em> rows. Use
+            <code>verification_state</code> for the diagnostic side.</li>
+            <li><strong>Force-refreshing on every turn.</strong> Cost
+            scales with repo size; "force" re-parses everything.
+            Reach for <code>if_stale</code> first; only force when
+            indexed answers look <em>wrong</em>, not just <em>old</em>.</li>
+            <li><strong>Trusting <code>fresh_indexed</code> line numbers
+            after edits.</strong> If you edited the file in the same
+            turn, the index is now lying about line numbers without
+            knowing. Use <code>working_tree_overlay</code> or
+            <code>live_text_search</code>.</li>
+            <li><strong>Ignoring <code>contradicted</code>.</strong>
+            Contradicted facts are the system telling you something
+            broke. Don't render them like "stale" — they need
+            attention, not just a refresh.</li>
+          </ul>
+        </section>
+
+        <section id="related">
+          <h2>Related</h2>
+          <ul>
+            <li><a href="./reef-engine.html">What is the Reef Engine?</a> — where freshness state is stored.</li>
+            <li><a href="./context-packets.html">Context packets</a> — packets respect freshness via <code>freshnessPolicy</code>.</li>
+            <li><a href="./mcp.html">Model Context Protocol</a> — how these tools surface to the agent.</li>
+            <li><a href="../recipes/debugging-with-context.html">Debug a tricky bug with context_packet</a> — uses freshness checks.</li>
+            <li><a href="../faq.html">FAQ</a> — common questions about agentmako.</li>
+          </ul>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

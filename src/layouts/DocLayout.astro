@@ -1,0 +1,58 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import DocSidebar from '../components/DocSidebar.astro';
+import BreadcrumbJsonLd from '../components/BreadcrumbJsonLd.astro';
+import '../styles/docs.css';
+import '../styles/shared.css';
+
+interface Crumb { name: string; href: string; }
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath?: string;
+  ogImage?: string;
+  ogImageAlt?: string;
+  ogType?: 'website' | 'article';
+  breadcrumbs?: Crumb[];
+}
+const {
+  title,
+  description,
+  canonicalPath,
+  ogImage,
+  ogImageAlt,
+  ogType = 'article',
+  breadcrumbs,
+} = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <BaseHead
+    title={title}
+    description={description}
+    canonicalPath={canonicalPath}
+    ogImage={ogImage}
+    ogImageAlt={ogImageAlt}
+    ogType={ogType}
+  />
+  {breadcrumbs && <BreadcrumbJsonLd items={breadcrumbs} />}
+  <slot name="head" />
+</head>
+<body>
+  <Nav />
+
+  <div class="doc-layout">
+    <DocSidebar />
+    <main class="doc-main">
+      <slot />
+    </main>
+  </div>
+
+  <Footer />
+  <script src="/main.js" defer></script>
+</body>
+</html>

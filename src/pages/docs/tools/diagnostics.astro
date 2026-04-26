@@ -1,0 +1,90 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Diagnostic tools — lint_files, typescript_diagnostics, eslint_diagnostics · agentmako"
+  description="The diagnostics cluster — lint_files, typescript_diagnostics, eslint_diagnostics, oxlint_diagnostics, biome_diagnostics, git_precommit_check, diagnostic_refresh."
+  canonicalPath="/docs/tools/diagnostics.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Tools", "href": "/docs/tools/"}, {"name": "Diagnostics", "href": "/docs/tools/diagnostics.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Tools &middot; Diagnostics</span>
+    <h1 style="margin-top:1rem;"><em>Diagnostic</em> tools</h1>
+    <p class="doc-hero__sub">
+      Run linters, the TypeScript compiler, and Mako's own rule pack on
+      a bounded set of files. Results persist into Reef so the agent can
+      query them later via <code>file_findings</code> and
+      <code>project_open_loops</code>.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <article id="lint_files">
+        <h2><code>lint_files</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Mako's internal diagnostics for a bounded file set. TS-aware, structural, plus Mako's own rule pack.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "files": ["app/dashboard/manager/layout.tsx", "lib/auth/dal.ts"],
+  "maxFindings": 100
+&rcub;</code></pre>
+        <p>Findings persist as Reef rows with a <code>matchBasedId</code> fingerprint — usable with <code>finding_ack</code>.</p>
+      </article>
+
+      <article id="typescript_diagnostics">
+        <h2><code>typescript_diagnostics</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Run TSC and persist Reef diagnostic run/finding rows.</p>
+        <h3>When to use it</h3>
+        <p>After type-affecting edits. Compare before/after counts to know whether your refactor introduced new TS errors.</p>
+      </article>
+
+      <article id="eslint_diagnostics">
+        <h2><code>eslint_diagnostics</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Run local ESLint on requested files. Persists to Reef.</p>
+      </article>
+
+      <article id="oxlint_diagnostics">
+        <h2><code>oxlint_diagnostics</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Run local Oxlint on requested files (if installed). Faster than ESLint on large codebases.</p>
+      </article>
+
+      <article id="biome_diagnostics">
+        <h2><code>biome_diagnostics</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Run local Biome checks on requested files (if Biome is configured).</p>
+      </article>
+
+      <article id="diagnostic_refresh">
+        <h2><code>diagnostic_refresh</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Invoke selected diagnostic sources and record compact per-source Reef results.</p>
+        <h3>When to use it</h3>
+        <p>Routine "rebuild the diagnostic snapshot" after big edits.</p>
+      </article>
+
+      <article id="git_precommit_check">
+        <h2><code>git_precommit_check</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Check staged TS/TSX files for route auth and Next.js client/server boundary mistakes.</p>
+        <h3>When to use it</h3>
+        <p>Before <code>git commit</code> on auth-sensitive or boundary-sensitive changes. Useful as a pre-commit hook.</p>
+      </article>
+
+      <article id="project_diagnostic_runs">
+        <h2><code>project_diagnostic_runs</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Read previous diagnostic run status without rerunning. Tells you the freshness of the cached diagnostic state.</p>
+      </article>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="./reef.html">Reef tools</a> — query persisted findings via <code>file_findings</code> and <code>project_findings</code>.</li>
+          <li><a href="../recipes/safe-refactoring.html">Refactor safely with AI agents</a> — uses diagnostics to gate edits.</li>
+          <li><a href="../faq.html#stale">FAQ: why is agentmako returning stale results?</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

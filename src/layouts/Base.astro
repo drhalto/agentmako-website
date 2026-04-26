@@ -1,0 +1,40 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import '../styles/styles.css';
+
+interface Props {
+  title: string;
+  description: string;
+  canonicalPath?: string;
+  ogImage?: string;
+  ogImageAlt?: string;
+  keywords?: string;
+}
+const { title, description, canonicalPath, ogImage, ogImageAlt, keywords } = Astro.props;
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <BaseHead
+    title={title}
+    description={description}
+    canonicalPath={canonicalPath}
+    ogImage={ogImage}
+    ogImageAlt={ogImageAlt}
+    keywords={keywords}
+    ogType="website"
+  />
+  {/* Mark the document as JS-ready before first paint so .am-reveal
+      elements start hidden (instead of flashing visible-then-hidden
+      when main.js eventually runs). Tiny inline script — synchronous,
+      runs before <body> renders. */}
+  <script is:inline>document.documentElement.classList.add('js-ready');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <slot name="head" />
+</head>
+<body>
+  <slot />
+  <script src="/main.js" defer></script>
+</body>
+</html>

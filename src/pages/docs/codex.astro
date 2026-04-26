@@ -1,0 +1,158 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How to add Mako to Codex CLI via config.toml · agentmako"
+  description="Wire agentmako into OpenAI's Codex CLI via ~/.codex/config.toml. One TOML block, one restart, and Mako tools surface in codex and codex exec."
+  canonicalPath="/docs/codex.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — MCP setup for Codex CLI."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Codex CLI", "href": "/docs/codex.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Setup &middot; Codex CLI</span>
+    <h1 style="margin-top:1rem;">Mako, meet <em>Codex CLI</em>.</h1>
+    <h2 style="margin-top:1rem; font-size:1.1rem; font-weight:500; color:var(--fg-dim);">How to add an MCP server to OpenAI's Codex CLI</h2>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server that wires
+      into Codex CLI through a single TOML block in
+      <code>~/.codex/config.toml</code>. One block, one restart, and Mako
+      tools are in <code>codex</code> and <code>codex exec</code>.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="prereq">
+          <h2 data-step="01">Prerequisites</h2>
+          <ul>
+            <li><strong>Node.js 20 or newer</strong></li>
+            <li><strong>Codex CLI</strong> installed (<code>codex --version</code>)</li>
+            <li><strong>agentmako on PATH</strong></li>
+          </ul>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// install &amp; attach</span>
+              <button class="copy-inline" data-copy-target="cdx-prereq">Copy</button>
+            </div>
+<pre id="cdx-prereq"><span class="c-prompt">$</span> npm install -g agentmako
+<span class="c-prompt">$</span> cd /path/to/your/project
+<span class="c-prompt">$</span> agentmako connect . --no-db
+<span class="c-prompt">$</span> agentmako doctor</pre>
+          </div>
+        </section>
+
+        <section id="config">
+          <h2 data-step="02">Add to config.toml</h2>
+          <p>Codex looks for MCP servers in <code>~/.codex/config.toml</code>
+          (Linux/macOS) or <code>%USERPROFILE%\.codex\config.toml</code>
+          (Windows). Append this block:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// ~/.codex/config.toml</span>
+              <button class="copy-inline" data-copy-target="cdx-toml">Copy</button>
+            </div>
+<pre id="cdx-toml"><span class="c-keyword">[mcp_servers.mako-ai]</span>
+<span class="c-key">command</span> = <span class="c-str">"agentmako"</span>
+<span class="c-key">args</span> = [<span class="c-str">"mcp"</span>]</pre>
+          </div>
+
+          <div class="callout">
+            <strong>Windows note</strong>
+            If <code>agentmako</code> is a shim (<code>agentmako.cmd</code>),
+            you may need to point Codex at the full path. Run
+            <code>where agentmako</code> in PowerShell to find it, then use that
+            absolute path as <code>command</code>.
+          </div>
+        </section>
+
+        <section id="verify">
+          <h2 data-step="03">Verify in Codex</h2>
+          <p>Start a Codex session from your attached project:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// shell</span>
+              <button class="copy-inline" data-copy-target="cdx-start">Copy</button>
+            </div>
+<pre id="cdx-start"><span class="c-prompt">$</span> cd /path/to/your/project
+<span class="c-prompt">$</span> codex</pre>
+          </div>
+
+          <p>Once the session is up, ask Codex to list available tools.
+          You should see Mako tools (<code>context_packet</code>,
+          <code>reef_scout</code>, <code>repo_map</code>, <code>cross_search</code>,
+          <code>ast_find_pattern</code>, etc.) under the <code>mako-ai</code> server.</p>
+        </section>
+
+        <section id="first">
+          <h2 data-step="04">First task</h2>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// prompt</span>
+            </div>
+<pre>Before reading any source files, call the mako-ai
+<span class="c-str">context_packet</span> tool with the query:
+<span class="c-str">"locate and explain the auth callback handler"</span>.
+
+Show me the packet, then proceed with the task.</pre>
+          </div>
+
+          <p>If you'd rather drive Mako from a script:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// non-interactive (codex exec)</span>
+              <button class="copy-inline" data-copy-target="cdx-exec">Copy</button>
+            </div>
+<pre id="cdx-exec"><span class="c-prompt">$</span> codex exec <span class="c-str">"Use mako-ai context_packet for: fix the broken /auth/callback route. Show packet, then patch."</span></pre>
+          </div>
+        </section>
+
+        <section id="agents-md">
+          <h2 data-step="05">Tell Codex when to use Mako</h2>
+          <p>Codex respects <code>AGENTS.md</code> at the project root. Drop
+          the contents of <a href="https://github.com/drhalto/agentmako/blob/main/AGENTS.md">agentmako's AGENTS.md</a>
+          into your project's <code>AGENTS.md</code> so the agent learns to
+          reach for <code>context_packet</code> before grep.</p>
+
+          <div class="callout">
+            <strong>Result</strong>
+            On the same task, Codex with Mako guidance issues 1–2 tool
+            calls; without it, expect 5+ file reads searching for the
+            target. The <code>AGENTS.md</code> entry is the cheapest token win
+            in this whole setup.
+          </div>
+        </section>
+
+        <section id="trouble">
+          <h2 data-step="06">Troubleshooting</h2>
+
+          <h3>Codex doesn't see mako-ai</h3>
+          <p>Confirm the TOML key is exactly <code>[mcp_servers.mako-ai]</code>
+          (not <code>[mcp.mako-ai]</code>). Restart any open Codex sessions —
+          the config is read at startup.</p>
+
+          <h3>Server starts then exits</h3>
+          <p>Run the server manually to see the error:
+          <code>agentmako mcp</code>. If you get a stack trace about a missing
+          project, you haven't run <code>agentmako connect .</code> yet.</p>
+
+          <h3>Tools call but return empty</h3>
+          <p>Mako needs an attached project per directory. Make sure you
+          launched <code>codex</code> from the same directory you ran
+          <code>agentmako connect</code> in.</p>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

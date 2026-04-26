@@ -1,0 +1,772 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base
+  title="agentmako — MCP server for Claude Code, Codex, Cursor & Cline"
+  description="Local-first MCP server that gives AI coding agents typed, deterministic context about your codebase. Replaces blind grep with ranked context packets. Works with Claude Code, Codex CLI, Cursor, and Cline. Apache-2.0, no telemetry, no hosted service."
+  ogImageAlt="agentmako logo and brand mark."
+  keywords="MCP server, Model Context Protocol, Claude Code, Codex CLI, Cursor, Cline, AI coding agent, agent harness, codebase context, code intelligence, context packet, Reef Engine, AGENTS.md, CLAUDE.md, local-first, Apache-2.0, agentmako"
+>
+  <Fragment slot="head">
+<link rel="prefetch" href="/docs/" as="document" />
+<link rel="prefetch" href="/docs/claude-code.html" as="document" />
+<link rel="prefetch" href="/docs/faq.html" as="document" />
+<link rel="prefetch" href="/CLAUDE.md" as="fetch" crossorigin />
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://agentmako.drhalto.com/#org",
+        "name": "agentmako",
+        "url": "https://agentmako.drhalto.com/",
+        "logo": "https://agentmako.drhalto.com/assets/site-files/android-chrome-512x512.png",
+        "sameAs": [
+          "https://github.com/drhalto/agentmako",
+          "https://www.npmjs.com/package/agentmako"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://agentmako.drhalto.com/#site",
+        "url": "https://agentmako.drhalto.com/",
+        "name": "agentmako",
+        "publisher": { "@id": "https://agentmako.drhalto.com/#org" },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "agentmako",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS, Linux, Windows",
+        "softwareVersion": "0.1.0",
+        "downloadUrl": "https://www.npmjs.com/package/agentmako",
+        "url": "https://agentmako.drhalto.com/",
+        "description": "Local-first MCP server that gives AI coding agents typed, deterministic context about your codebase. Compatible with Claude Code, Codex CLI, Cursor, and Cline.",
+        "license": "https://opensource.org/licenses/Apache-2.0",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "softwareRequirements": "Node.js >= 20",
+        "author": { "@type": "Organization", "name": "agentmako" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is agentmako?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "agentmako is a local-first MCP server (Apache-2.0) that gives AI coding agents typed, deterministic context about your codebase. It indexes your repo into local SQLite, tracks diagnostics, snapshots Postgres or Supabase schema when configured, and returns ranked context packets via the Model Context Protocol. Compatible with Claude Code, Codex CLI, Cursor, and Cline."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is an MCP server?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "MCP (Model Context Protocol) is an open standard from Anthropic that lets AI coding agents call external tools over a standardized stdio interface. An MCP server exposes tools — file search, database queries, schema introspection — that any compliant client (Claude Code, Codex CLI, Cursor, Cline) can call. agentmako is an MCP server specifically designed for code intelligence."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I add an MCP server to Claude Code?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Run claude mcp add mako-ai agentmako mcp from your project root, or add the server manually to ~/.claude.json or a project-scoped .mcp.json. Restart Claude Code, then run /mcp inside the session to confirm. Tools surface as mcp__mako-ai__<toolName>."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I add an MCP server to Cursor?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Cursor reads MCP servers from ~/.cursor/mcp.json (global) or .cursor/mcp.json (per-project). Add a mcpServers entry pointing at agentmako with args [\"mcp\"], then open Cursor Settings → Features → MCP to verify the server shows green. Composer (⌘+I) and Agent mode both see the tools after a restart."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I add an MCP server to Codex CLI?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Codex CLI uses TOML, not JSON. Add a [mcp_servers.mako-ai] block to ~/.codex/config.toml with command = \"agentmako\" and args = [\"mcp\"]. Restart any running codex sessions. Works with both interactive codex and one-shot codex exec."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is agentmako free and open source?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. agentmako is open source under Apache-2.0. There is no paid tier. The core MCP and indexing workflow runs entirely on your machine — no hosted service, no telemetry, no analytics, no usage pings."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does agentmako send my code anywhere?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. The indexer and MCP server run locally and store data in local SQLite under each project's .mako-ai/ directory. agentmako does not collect telemetry of any kind. Outbound network requests only happen when you explicitly configure a model provider for the optional harness, or when you connect a Postgres or Supabase database."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Why does my AI coding agent rediscover the codebase every prompt?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Without a persistent context layer, agents have no memory of your project across turns. Each prompt they start fresh — running grep, walking directories, re-reading files they read 30 seconds ago. The fix is a context engine like agentmako that indexes the repo once and serves typed context packets on demand, with durable findings that persist across sessions."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+  </Fragment>
+
+<div class="am-scan" aria-hidden="true"></div>
+
+<div class="am-doc">
+
+  <!-- ===== NAV ===== -->
+  <nav class="am-nav">
+    <div class="am-shell am-nav-row">
+      <a class="am-brand" href="/" aria-label="agentmako home">
+        <img src="/assets/site-files/favicon-32x32.png" alt="agentmako logo" width="32" height="32" />
+        agentmako
+      </a>
+      <div style="flex:1"></div>
+      <a class="am-gh-btn" href="https://github.com/drhalto/agentmako" target="_blank" rel="noopener" data-github-repo="drhalto/agentmako">
+        <span class="lbl">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+            <path fill="currentColor" fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+          GitHub
+        </span>
+        <span class="sep" data-github-star-sep hidden></span>
+        <span class="num" data-github-star-count hidden aria-label="GitHub star count"></span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ===== HERO ===== -->
+  <section class="am-hero" id="top">
+    <!-- Ambient orbit: AI provider logos drifting behind the hero content.
+         Pure decoration — aria-hidden, pointer-events: none, GPU-only transforms. -->
+    <div class="am-hero-orbit" aria-hidden="true">
+      <img class="orbit orbit-1" src="/assets/ai-providers/claudecode-color.svg" alt="" width="64" height="64" loading="eager" />
+      <img class="orbit orbit-2" src="/assets/ai-providers/openai.svg" alt="" width="56" height="56" loading="eager" />
+      <img class="orbit orbit-3" src="/assets/ai-providers/cursor.svg" alt="" width="48" height="48" loading="eager" />
+      <img class="orbit orbit-4" src="/assets/ai-providers/gemini-color.svg" alt="" width="60" height="60" loading="eager" />
+      <img class="orbit orbit-5" src="/assets/ai-providers/ollama.svg" alt="" width="44" height="44" loading="eager" />
+      <img class="orbit orbit-6" src="/assets/ai-providers/github.svg" alt="" width="40" height="40" loading="eager" />
+      <img class="orbit orbit-7" src="/assets/ai-providers/lmstudio.svg" alt="" width="52" height="52" loading="eager" />
+      <img class="orbit orbit-8" src="/assets/ai-providers/huggingface-color.svg" alt="" width="44" height="44" loading="eager" />
+    </div>
+    <div class="am-shell">
+      <div class="am-hero-grid">
+        <div class="am-reveal">
+          <h1 class="am-h1">
+            Stop letting agents <span class="accent">grep your repo blind.</span>
+          </h1>
+          <h2 class="am-visually-hidden">agentmako — local-first MCP server for Claude Code, Codex CLI, Cursor, and Cline</h2>
+          <p class="am-lede">
+            <strong>agentmako</strong> is a local-first MCP server for AI coding
+            agents — Claude Code, Codex CLI, Cursor, Cline, and any other MCP
+            client. It indexes the repo, tracks diagnostics, snapshots your
+            Postgres or Supabase schema, and returns typed context packets — so
+            your agent stops rediscovering everything from scratch on every turn.
+          </p>
+          <div class="am-hero-cta">
+            <button class="am-cmd" type="button" data-copy="npm install -g agentmako" aria-label="Copy install command">
+              <span class="am-cmd__prompt">$</span>
+              <span class="am-cmd__text">npm install -g agentmako</span>
+              <span class="am-cmd__action">
+                <svg class="am-cmd__icon-copy" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="9" y="9" width="13" height="13" rx="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+                <svg class="am-cmd__icon-check" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M20 6L9 17l-5-5"/>
+                </svg>
+                <span class="am-cmd__label">copy</span>
+              </span>
+            </button>
+            <a class="am-btn am-btn-ghost am-btn-sm" href="/docs/">Read the docs &rarr;</a>
+          </div>
+          <div class="am-hero-meta">
+            <span>local-first · no hosted service</span>
+            <span>node &ge; 20</span>
+            <span>85 typed tools</span>
+            <span>apache-2.0</span>
+          </div>
+        </div>
+
+        <div class="am-reveal" style="transition-delay:120ms;">
+          <div class="am-term" id="hero-term">
+            <div class="am-term-bar">
+              <div class="am-term-dots"><span></span><span></span><span></span></div>
+              <div class="am-term-title">~/projects/your-app — agentmako</div>
+            </div>
+            <div class="am-term-body" id="hero-term-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TICKER ===== -->
+  <div class="am-ticker" aria-hidden="true">
+    <div class="am-ticker-track" id="ticker-track"></div>
+  </div>
+
+  <!-- ===== LOOP ===== -->
+  <section class="am-sect" id="loop">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="↻">how it works</span>
+        <h2 class="am-h2">Index. Ask. Verify. Edit.</h2>
+        <p class="am-lede">
+          Mako sits between your coding agent and your repo as an MCP server. It
+          doesn't write code — it returns the context the model would otherwise
+          invent.
+        </p>
+      </div>
+      <div class="am-loop">
+        <div class="am-loop-step am-reveal">
+          <span class="am-loop-step__n">01</span>
+          <h4>Index</h4>
+          <p>Reads the repo. Writes a typed local snapshot.</p>
+        </div>
+        <div class="am-loop-step am-reveal" style="transition-delay:70ms;">
+          <span class="am-loop-step__n">02</span>
+          <h4>Ask</h4>
+          <p>Your agent calls one tool. Mako returns ranked context.</p>
+        </div>
+        <div class="am-loop-step am-reveal" style="transition-delay:140ms;">
+          <span class="am-loop-step__n">03</span>
+          <h4>Verify</h4>
+          <p>Stale or contradicted evidence is labeled, not silently served.</p>
+        </div>
+        <div class="am-loop-step am-reveal" style="transition-delay:210ms;">
+          <span class="am-loop-step__n">04</span>
+          <h4>Edit</h4>
+          <p>The agent edits with cited context. Diagnostics gate the commit.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== COMPARE ===== -->
+  <section class="am-sect" id="compare">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="⇄">side-by-side</span>
+        <h2 class="am-h2">Vanilla agent vs. mako-backed agent.</h2>
+        <p class="am-lede">
+          Same model, same prompts. The difference is the context layer underneath.
+        </p>
+      </div>
+      <div class="am-compare am-reveal">
+        <div class="am-compare__bar">
+          <div class="am-compare__dots"><span></span><span></span><span></span></div>
+          <span class="am-compare__title">~ vs.diff — same prompt, two agents</span>
+          <span class="am-compare__side bad">vanilla</span>
+          <span class="am-compare__sep">/</span>
+          <span class="am-compare__side good">mako</span>
+        </div>
+        <div class="am-diff">
+          <div class="am-diff__row">
+            <div class="am-diff__label">files</div>
+            <div class="am-diff__lines">
+              <div class="am-diff__line bad"><span>−</span>greps and guesses</div>
+              <div class="am-diff__line good"><span>+</span>queries an indexed graph</div>
+            </div>
+          </div>
+          <div class="am-diff__row">
+            <div class="am-diff__label">freshness</div>
+            <div class="am-diff__lines">
+              <div class="am-diff__line bad"><span>−</span>assumes the first read is still true</div>
+              <div class="am-diff__line good"><span>+</span>labels every fact live, stale, or contradicted</div>
+            </div>
+          </div>
+          <div class="am-diff__row">
+            <div class="am-diff__label">memory</div>
+            <div class="am-diff__lines">
+              <div class="am-diff__line bad"><span>−</span>findings die with the chat</div>
+              <div class="am-diff__line good"><span>+</span>reef remembers across runs</div>
+            </div>
+          </div>
+          <div class="am-diff__row">
+            <div class="am-diff__label">location</div>
+            <div class="am-diff__lines">
+              <div class="am-diff__line bad"><span>−</span>hosted vector store you can't inspect</div>
+              <div class="am-diff__line good"><span>+</span>local sqlite, no hosted service</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== INSTALL ===== -->
+  <section class="am-sect" id="install">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="$">quickstart</span>
+        <h2 class="am-h2">Three commands. No hosted service.</h2>
+        <p class="am-lede">
+          Requires Node &ge; 20. Everything else runs locally — index, store, MCP transport.
+        </p>
+      </div>
+      <div class="am-install-term am-reveal">
+        <div class="am-install-term__bar">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="title">~ — install agentmako (≈ 60 seconds)</span>
+          <span class="badge">node ≥ 20</span>
+        </div>
+
+        <div class="am-install-term__body">
+          <div class="am-install-step">
+            <span class="num">01</span>
+            <div>
+              <span class="cmd"><span class="prompt">$</span>npm install -g agentmako</span>
+              <span class="out ok">added agentmako@0.1.0 · 1 binary in $PATH</span>
+            </div>
+            <button class="am-copy" data-copy="npm install -g agentmako">copy</button>
+          </div>
+
+          <div class="am-install-step">
+            <span class="num">02</span>
+            <div>
+              <span class="cmd"><span class="prompt">$</span>cd /path/to/your/project</span>
+              <span class="cmd" style="display:block; margin-top:4px;"><span class="prompt">$</span>agentmako connect . --no-db</span>
+              <span class="out ok">indexed 482 files · 6,213 symbols · 38 routes</span>
+              <span class="out ok">reef snapshot ready · 0 open loops</span>
+            </div>
+            <button class="am-copy" data-copy="agentmako connect . --no-db">copy</button>
+          </div>
+
+          <div class="am-install-step">
+            <span class="num">03</span>
+            <div>
+              <span class="cmd"><span class="prompt">$</span>agentmako doctor</span>
+              <span class="out ok">config · api service · index · all green</span>
+            </div>
+            <button class="am-copy" data-copy="agentmako doctor">copy</button>
+          </div>
+
+          <div class="am-install-step">
+            <span class="num">04</span>
+            <div>
+              <span class="cmd"><span class="prompt">$</span>agentmako mcp</span>
+              <span class="out">stdio MCP server ready · listening on agent</span>
+            </div>
+            <button class="am-copy" data-copy="agentmako mcp">copy</button>
+          </div>
+        </div>
+
+        <aside class="am-install-side">
+          <div>
+            <h4>then drop into your MCP client</h4>
+            <pre style="margin-top:8px;"><code>&lcub;
+  <span class="k">"mcpServers"</span>: &lcub;
+    <span class="k">"mako-ai"</span>: &lcub;
+      <span class="k">"command"</span>: <span class="s">"agentmako"</span>,
+      <span class="k">"args"</span>: [<span class="s">"mcp"</span>]
+    &rcub;
+  &rcub;
+&rcub;</code></pre>
+            <button class="am-copy" data-copy='{"mcpServers":{"mako-ai":{"command":"agentmako","args":["mcp"]}}}' style="margin-top:8px;">copy json</button>
+          </div>
+
+          <div>
+            <h4>add database awareness</h4>
+            <div class="meta" style="margin-top:6px;">
+              Run <strong>agentmako connect .</strong> interactively to wire Postgres or Supabase. Stored in your OS keychain by default.
+            </div>
+          </div>
+
+          <div>
+            <h4>per-client setup</h4>
+            <div class="meta" style="margin-top:6px;">
+              <a href="/docs/claude-code.html">Claude Code</a> ·
+              <a href="/docs/codex.html">Codex CLI</a> ·
+              <a href="/docs/cursor.html">Cursor</a> ·
+              <a href="/docs/cline.html">Cline</a>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== INTEGRATIONS ===== -->
+  <section class="am-sect" id="integrations">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="◇">integrations</span>
+        <h2 class="am-h2">Drop into any MCP client.</h2>
+        <p class="am-lede">
+          Same stdio config everywhere. Tools surface as <span class="am-kbd">mcp__mako-ai__*</span>.
+        </p>
+      </div>
+      <div class="am-integ">
+        <a class="am-integ-card am-reveal" href="/docs/claude-code.html">
+          <div class="name"><img src="/assets/ai-providers/claudecode-color.svg" alt="" />Claude Code</div>
+          <div class="am-integ-format">CLI · plugin</div>
+          <pre><code><span class="prompt">$ </span>claude mcp add mako-ai \
+    agentmako mcp</code></pre>
+          <ul class="am-integ-bullets">
+            <li>+ <span class="kw">/mako-ai</span> plugin with 8 bundled skills</li>
+            <li>config: <span class="kw">~/.claude.json</span></li>
+            <li>verify: <span class="kw">/mcp</span> inside Claude Code</li>
+          </ul>
+          <div class="am-integ-foot">Claude Code MCP setup guide <span class="arrow">↗</span></div>
+        </a>
+
+        <a class="am-integ-card am-reveal" href="/docs/codex.html" style="transition-delay:70ms;">
+          <div class="name"><img class="mono" src="/assets/ai-providers/openai.svg" alt="" />Codex CLI</div>
+          <div class="am-integ-format">TOML</div>
+          <pre><code><span class="cmt">; ~/.codex/config.toml</span>
+<span class="k">[mcp_servers.mako-ai]</span>
+command = <span class="s">"agentmako"</span>
+args    = [<span class="s">"mcp"</span>]</code></pre>
+          <ul class="am-integ-bullets">
+            <li>works with <span class="kw">codex</span> + <span class="kw">codex exec</span></li>
+            <li>stdio transport, zero extra config</li>
+            <li>tools surface as <span class="kw">mako-ai__*</span></li>
+          </ul>
+          <div class="am-integ-foot">Codex CLI MCP setup guide <span class="arrow">↗</span></div>
+        </a>
+
+        <a class="am-integ-card am-reveal" href="/docs/cursor.html" style="transition-delay:140ms;">
+          <div class="name"><img class="mono" src="/assets/ai-providers/cursor.svg" alt="" />Cursor</div>
+          <div class="am-integ-format">JSON · per-project</div>
+          <pre><code><span class="cmt">// .cursor/mcp.json</span>
+&lcub;
+  <span class="k">"mcpServers"</span>: &lcub;
+    <span class="k">"mako-ai"</span>: &lcub; <span class="k">"command"</span>: <span class="s">"agentmako"</span>,
+      <span class="k">"args"</span>: [<span class="s">"mcp"</span>] &rcub;
+  &rcub;
+&rcub;</code></pre>
+          <ul class="am-integ-bullets">
+            <li>Composer (<span class="kw">⌘ I</span>) + Agent mode</li>
+            <li>Project Rules to enforce Mako-first</li>
+            <li>or global <span class="kw">~/.cursor/mcp.json</span></li>
+          </ul>
+          <div class="am-integ-foot">Cursor MCP setup guide <span class="arrow">↗</span></div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PLAYBOOK ===== -->
+  <section class="am-sect" id="playbook">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="▤">agents.md</span>
+        <h2 class="am-h2">Teach your agent the playbook.</h2>
+        <p class="am-lede">
+          Tools are only as useful as the agent's choice to call them. Drop our
+          <span class="am-kbd">CLAUDE.md</span> / <span class="am-kbd">AGENTS.md</span> into
+          your project root so the agent knows <em>when</em> to reach for Mako.
+        </p>
+      </div>
+
+      <div class="am-playbook am-reveal">
+        <div class="am-playbook__bar">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="title">CLAUDE.md · AGENTS.md — preview</span>
+          <span class="badge">306 lines</span>
+        </div>
+        <div class="am-playbook__body">
+<pre id="playbook-text"><span class="h2">## Mako MCP Usage</span>
+
+This repo has <span class="code">`mako-ai`</span> registered in <span class="code">`.mcp.json`</span> as:
+
+<span class="comment">```json</span>
+&lcub;
+  <span class="key">"mako-ai"</span>: &lcub;
+    <span class="key">"command"</span>: <span class="str">"agentmako"</span>,
+    <span class="key">"args"</span>: [<span class="str">"mcp"</span>]
+  &rcub;
+&rcub;
+<span class="comment">```</span>
+
+In Claude Code, Mako tools usually appear as <span class="code">`mcp__mako-ai__&lt;toolName&gt;`</span>. The examples below use the bare tool name for readability.
+
+<span class="h3">### Operating Model</span>
+
+Mako is a deterministic project context engine, not a replacement for normal coding discipline. Use it to narrow the work: relevant files, symbols, routes, schema objects, findings, freshness, and risks. Then use normal reads, edits, tests, and shell commands to implement and verify.
+
+Prefer Mako before broad grep/file walking when the question is about project structure, cross-file impact, database usage, routing, auth, or known findings. Prefer <span class="code">`live_text_search`</span> or shell <span class="code">`rg`</span> when you need exact current disk text after edits.
+
+Mako has two evidence modes:
+
+<span class="bullet">-</span> Indexed/Reef evidence: fast and structured, but tied to the last index or persisted fact snapshot.
+<span class="bullet">-</span> Live evidence: current filesystem or live database. Use this when line numbers, edited files, or recently created files matter.
+
+Do not treat answer stability as freshness. A stable indexed answer can still be stale relative to disk. Check <span class="code">`project_index_status`</span>, per-evidence freshness fields, or <span class="code">`live_text_search`</span> before relying on exact lines after edits.
+
+</pre>
+        </div>
+        <div class="am-playbook__foot">
+          <div class="am-playbook__hint">
+            drops into your project root as <kbd>CLAUDE.md</kbd> or <kbd>AGENTS.md</kbd>
+          </div>
+          <div class="am-playbook__actions">
+            <a class="am-playbook__action" href="/CLAUDE.md" download="CLAUDE.md">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              CLAUDE.md
+            </a>
+            <a class="am-playbook__action" href="/AGENTS.md" download="AGENTS.md">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              AGENTS.md
+            </a>
+            <button class="am-playbook__action primary" id="playbook-copy" data-copy-from="playbook-text">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="1"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Copy markdown
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TOOLS ===== -->
+  <section class="am-sect" id="tools">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="⌬">tool catalog</span>
+        <h2 class="am-h2">85 typed tools. One MCP server.</h2>
+        <p class="am-lede">
+          Six clusters cover the whole agent loop — from "what's relevant?" to
+          "did it ship?".
+        </p>
+      </div>
+
+      <div class="am-cats am-reveal">
+        <a class="am-cat" href="/docs/tools/context.html">
+          <div class="am-cat__head">Context</div>
+          <div class="am-cat__desc">Ranked context for vague tasks.</div>
+          <div class="am-cat__sample"><code>context_packet</code> <code>reef_scout</code></div>
+        </a>
+        <a class="am-cat" href="/docs/tools/code-intel.html">
+          <div class="am-cat__head">Code intel</div>
+          <div class="am-cat__desc">Repo map, AST search, import graph.</div>
+          <div class="am-cat__sample"><code>cross_search</code> <code>imports_impact</code></div>
+        </a>
+        <a class="am-cat" href="/docs/tools/reef.html">
+          <div class="am-cat__head">Reef Engine</div>
+          <div class="am-cat__desc">Durable facts, findings, freshness.</div>
+          <div class="am-cat__sample"><code>file_findings</code> <code>verification_state</code></div>
+        </a>
+        <a class="am-cat" href="/docs/tools/database.html">
+          <div class="am-cat__head">Database</div>
+          <div class="am-cat__desc">Live Postgres / Supabase awareness.</div>
+          <div class="am-cat__sample"><code>db_table_schema</code> <code>db_rls</code></div>
+        </a>
+        <a class="am-cat" href="/docs/tools/flow.html">
+          <div class="am-cat__head">Trace &amp; flow</div>
+          <div class="am-cat__desc">Routes, RPCs, auth paths, graph walks.</div>
+          <div class="am-cat__sample"><code>route_trace</code> <code>auth_path</code></div>
+        </a>
+        <a class="am-cat" href="/docs/tools/diagnostics.html">
+          <div class="am-cat__head">Diagnostics</div>
+          <div class="am-cat__desc">TSC, ESLint, Biome, pre-commit gates.</div>
+          <div class="am-cat__sample"><code>lint_files</code> <code>git_precommit_check</code></div>
+        </a>
+      </div>
+
+      <div class="am-cats__foot am-reveal">
+        <a class="am-btn am-btn-ghost" href="/docs/tools/">Browse the full catalog &rarr;</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="am-sect" id="faq">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="?">common questions</span>
+        <h2 class="am-h2">Quick answers about MCP, Mako, and your agent.</h2>
+        <p class="am-lede">
+          The most-asked questions from devs first wiring up an MCP server.
+          Full bank lives at <a href="/docs/faq.html">the agentmako FAQ</a>.
+        </p>
+      </div>
+
+      <div class="am-faq am-reveal">
+        <details class="am-faq-item">
+          <summary>What is an MCP server?</summary>
+          <div class="am-faq-body">
+            <p>An open standard from Anthropic that lets AI coding agents call
+            external tools over a stdio interface. An MCP server exposes tools
+            — search, schema, diagnostics — that any compliant client (Claude
+            Code, Codex CLI, Cursor, Cline) can call.</p>
+            <p><a href="/docs/concepts/mcp.html">More on MCP &rarr;</a></p>
+          </div>
+        </details>
+
+        <details class="am-faq-item">
+          <summary>Why does my agent rediscover the codebase every prompt?</summary>
+          <div class="am-faq-body">
+            <p>It has no memory across turns. Each prompt it greps and re-reads
+            files it touched 30 seconds ago. Mako indexes the repo once and
+            serves typed context packets on demand.</p>
+            <p><a href="/docs/concepts/context-packets.html">What is a context packet? &rarr;</a></p>
+          </div>
+        </details>
+
+        <details class="am-faq-item">
+          <summary>Is it free? Does it send my code anywhere?</summary>
+          <div class="am-faq-body">
+            <p>Free, Apache-2.0, zero telemetry. Everything runs locally; data
+            sits in <code>.mako-ai/</code> under each project. Outbound traffic
+            only when you wire a model provider or connect Postgres / Supabase.</p>
+            <p><a href="https://github.com/drhalto/agentmako/blob/main/PRIVACY.md">Privacy policy &rarr;</a></p>
+          </div>
+        </details>
+
+        <details class="am-faq-item">
+          <summary>How is this different from a vector RAG database?</summary>
+          <div class="am-faq-body">
+            <p>RAG fuzzy-matches text chunks. Mako stores a typed graph —
+            files, symbols, routes, schema, RLS — and does deterministic
+            lookups. Lower tokens, higher accuracy when fresh, and freshness
+            itself is labeled.</p>
+            <p><a href="/docs/concepts/reef-engine.html">What is the Reef Engine? &rarr;</a></p>
+          </div>
+        </details>
+
+        <details class="am-faq-item">
+          <summary>How do I get my agent to actually use Mako?</summary>
+          <div class="am-faq-body">
+            <p>Tools are only as useful as the agent's choice to call them.
+            Drop the <a href="/CLAUDE.md">CLAUDE.md / AGENTS.md template</a> into
+            your project root — it tells the agent <em>when</em> to reach for
+            which Mako tool. Without it, agents default to grep.</p>
+          </div>
+        </details>
+      </div>
+
+      <p class="am-faq-foot am-reveal">
+        <a class="am-btn am-btn-ghost" href="/docs/faq.html">Read the full FAQ &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="am-footer">
+
+    <!-- Closing CTA strip — last conversion hook -->
+    <div class="am-footer-cta">
+      <div class="am-shell am-footer-cta__inner">
+        <div>
+          <h3 class="am-footer-cta__head">Give your agent a brain.</h3>
+          <p class="am-footer-cta__sub">
+            Local-first. Apache-2.0. Works with every MCP-compatible coding agent.
+          </p>
+        </div>
+        <div class="am-footer-cta__actions">
+          <button class="am-cmd" type="button" data-copy="npm install -g agentmako" aria-label="Copy install command">
+            <span class="am-cmd__prompt">$</span>
+            <span class="am-cmd__text">npm install -g agentmako</span>
+            <span class="am-cmd__action">
+              <svg class="am-cmd__icon-copy" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <svg class="am-cmd__icon-check" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5"/>
+              </svg>
+              <span class="am-cmd__label">copy</span>
+            </span>
+          </button>
+          <a class="am-btn am-btn-ghost" href="https://github.com/drhalto/agentmako" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+              <path fill="currentColor" d="M8 .25a.75.75 0 0 1 .673.418l1.882 3.815 4.21.612a.75.75 0 0 1 .416 1.279l-3.046 2.97.719 4.192a.751.751 0 0 1-1.088.791L8 12.347l-3.766 1.98a.75.75 0 0 1-1.088-.79l.72-4.194L.818 6.374a.75.75 0 0 1 .416-1.28l4.21-.611L7.327.668A.75.75 0 0 1 8 .25Zm0 2.445L6.615 5.5a.75.75 0 0 1-.564.41l-3.097.45 2.24 2.184a.75.75 0 0 1 .216.664l-.528 3.084 2.769-1.456a.75.75 0 0 1 .698 0l2.77 1.456-.53-3.084a.75.75 0 0 1 .216-.664l2.24-2.183-3.096-.45a.75.75 0 0 1-.564-.41L8 2.694Z"/>
+            </svg>
+            GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="am-shell">
+      <div class="am-footer-grid">
+        <div class="am-footer-brand">
+          <a class="am-brand" href="/">
+            <img src="/assets/site-files/favicon-32x32.png" alt="agentmako logo" width="32" height="32" />
+            agentmako
+          </a>
+          <p class="am-footer-tagline">
+            Typed, deterministic context for AI coding agents.
+            What files matter, what's fresh, what to read next.
+          </p>
+        </div>
+        <div>
+          <h5>code</h5>
+          <ul>
+            <li><a href="https://github.com/drhalto/agentmako" rel="noopener">github</a></li>
+            <li><a href="https://www.npmjs.com/package/agentmako" rel="noopener">npm</a></li>
+            <li><a href="https://github.com/drhalto/agentmako/blob/main/CHANGELOG.md">changelog</a></li>
+            <li><a href="https://github.com/drhalto/agentmako/blob/main/LICENSE">license</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>docs</h5>
+          <ul>
+            <li><a href="/docs/">quickstart</a></li>
+            <li><a href="/docs/concepts/">concepts</a></li>
+            <li><a href="/docs/recipes/">recipes</a></li>
+            <li><a href="/docs/tools/">tool catalog</a></li>
+            <li><a href="/docs/faq.html">FAQ</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>setup</h5>
+          <ul>
+            <li><a href="/docs/claude-code.html">claude code</a></li>
+            <li><a href="/docs/codex.html">codex cli</a></li>
+            <li><a href="/docs/cursor.html">cursor</a></li>
+            <li><a href="/docs/cline.html">cline</a></li>
+          </ul>
+        </div>
+        <div>
+          <h5>policy</h5>
+          <ul>
+            <li><a href="https://github.com/drhalto/agentmako/blob/main/PRIVACY.md">privacy</a></li>
+            <li><a href="https://github.com/drhalto/agentmako/blob/main/SECURITY.md">security</a></li>
+            <li><a href="https://github.com/drhalto/agentmako/blob/main/CONTRIBUTING.md">contributing</a></li>
+            <li><a href="https://github.com/drhalto/agentmako/blob/main/CODE_OF_CONDUCT.md">code of conduct</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="am-footer-meta">
+        <div class="sig">
+          <span class="dot" aria-hidden="true"></span>
+          Apache-2.0 · Node ≥ 20 · stdio MCP
+        </div>
+        <div class="am-footer-meta__motto">&lt;/&gt; built for agents, run by humans</div>
+      </div>
+    </div>
+  </footer>
+
+</div>
+</Base>

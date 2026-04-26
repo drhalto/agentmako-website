@@ -1,0 +1,94 @@
+---
+// Global docs sidebar. Active state is computed from Astro.url.pathname so
+// authors don't have to thread the active path through every page.
+const here = Astro.url.pathname.replace(/index\.html$/, '').replace(/\/$/, '/');
+
+interface Item {
+  href: string;
+  label: string;
+}
+interface Group {
+  title: string;
+  items: Item[];
+}
+
+const groups: Group[] = [
+  {
+    title: 'Get started',
+    items: [{ href: '/docs/', label: 'Quickstart' }],
+  },
+  {
+    title: 'Setup',
+    items: [
+      { href: '/docs/claude-code.html', label: 'Claude Code' },
+      { href: '/docs/codex.html', label: 'Codex CLI' },
+      { href: '/docs/cursor.html', label: 'Cursor' },
+      { href: '/docs/cline.html', label: 'Cline (VS Code)' },
+    ],
+  },
+  {
+    title: 'Concepts',
+    items: [
+      { href: '/docs/concepts/mcp.html', label: 'Model Context Protocol' },
+      { href: '/docs/concepts/context-packets.html', label: 'Context packets' },
+      { href: '/docs/concepts/reef-engine.html', label: 'Reef Engine' },
+      { href: '/docs/concepts/freshness.html', label: 'Freshness model' },
+    ],
+  },
+  {
+    title: 'Recipes',
+    items: [
+      { href: '/docs/recipes/auth-flow-tracing.html', label: 'Trace an auth flow' },
+      { href: '/docs/recipes/safe-refactoring.html', label: 'Refactor safely' },
+      { href: '/docs/recipes/database-aware-edits.html', label: 'Schema-aware edits' },
+      { href: '/docs/recipes/debugging-with-context.html', label: 'Debug with context' },
+    ],
+  },
+  {
+    title: 'Tools',
+    items: [
+      { href: '/docs/tools/', label: 'All tools' },
+      { href: '/docs/tools/context.html', label: 'Context' },
+      { href: '/docs/tools/code-intel.html', label: 'Code intelligence' },
+      { href: '/docs/tools/reef.html', label: 'Reef Engine' },
+      { href: '/docs/tools/database.html', label: 'Database' },
+      { href: '/docs/tools/flow.html', label: 'Trace & flow' },
+      { href: '/docs/tools/diagnostics.html', label: 'Diagnostics' },
+    ],
+  },
+  {
+    title: 'Reference',
+    items: [
+      { href: '/docs/cli.html', label: 'CLI reference' },
+      { href: '/docs/dashboard.html', label: 'Dashboard' },
+      { href: '/docs/faq.html', label: 'FAQ' },
+      { href: '/docs/troubleshooting.html', label: 'Troubleshooting' },
+    ],
+  },
+];
+
+function isActive(href: string): boolean {
+  // Normalize: treat /docs/ vs /docs as the same; treat /docs/index.html as /docs/
+  const normHere = here.replace(/\/$/, '') || '/';
+  const normHref = href.replace(/\/$/, '') || '/';
+  return normHere === normHref;
+}
+---
+<aside class="doc-sidebar">
+  <nav class="doc-sidenav" aria-label="Documentation">
+    {groups.map(group => (
+      <>
+        <h5>{group.title}</h5>
+        <ul>
+          {group.items.map(item => (
+            <li>
+              <a href={item.href} class:list={[isActive(item.href) && 'active']}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </>
+    ))}
+  </nav>
+</aside>

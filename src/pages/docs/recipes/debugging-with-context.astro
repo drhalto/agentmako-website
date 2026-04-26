@@ -1,0 +1,173 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How to debug a tricky bug with context_packet · agentmako"
+  description="A walkthrough recipe — debug a generic 'hydration error' by starting from context_packet, narrowing with reef_inspect and freshness, and pinning the actual cause."
+  canonicalPath="/docs/recipes/debugging-with-context.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — debugging recipe."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Recipes", "href": "/docs/recipes/"}, {"name": "Debug with context", "href": "/docs/recipes/debugging-with-context.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Recipe &middot; Debugging</span>
+    <h1 style="margin-top:1rem;">How to <em>debug a tricky bug</em> with <code>context_packet</code></h1>
+    <p class="doc-hero__sub">
+      <strong>TL;DR:</strong> Hydration errors, "this only fails in
+      production", "intermittent role check failure" — vague bugs eat
+      hours when the agent grep-loops. Start from
+      <code>context_packet</code>, branch into <code>reef_inspect</code>
+      and <code>trace_error</code>, and verify with
+      <code>evidence_confidence</code> before editing. Tools used:
+      <code>context_packet</code>, <code>reef_scout</code>,
+      <code>reef_inspect</code>, <code>trace_error</code>,
+      <code>live_text_search</code>, <code>evidence_confidence</code>.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <section>
+        <h2>The bug</h2>
+        <p>Sentry shows: <em>"Hydration failed because the initial UI
+        does not match what was rendered on the server"</em>, frequency
+        ~30 events/hour, mostly on the
+        <code>/dashboard/manager/[districtId]</code> route. You have no
+        idea where to start. The agent has even less.</p>
+      </section>
+
+      <section>
+        <h2>Step 1 — <code>context_packet</code> with the error verbatim</h2>
+        <pre><code>&lcub;
+  "tool": "context_packet",
+  "args": &lcub;
+    "request": "Hydration failed on /dashboard/manager/[districtId]",
+    "includeInstructions": true,
+    "includeRisks": true,
+    "includeLiveHints": true,
+    "freshnessPolicy": "prefer_fresh",
+    "budgetTokens": 4000
+  &rcub;
+&rcub;</code></pre>
+        <p>The packet returns:</p>
+        <ul>
+          <li><strong>primaryContext</strong>: the layout file
+          <code>app/dashboard/manager/[districtId]/layout.tsx</code>, the
+          loading state, and the data fetcher.</li>
+          <li><strong>activeFindings</strong>: a Reef finding from a
+          prior session — "client-only date formatting in
+          <code>DistrictHeader</code> uses Date.now() inline".</li>
+          <li><strong>risks</strong>: "this layout reads from
+          <code>manager_district</code>; RLS-sensitive."</li>
+          <li><strong>recommendedHarnessPattern</strong>: "read primary
+          → call <code>file_findings</code> on layout.tsx → check
+          freshness."</li>
+        </ul>
+        <p>The activeFindings line is gold — someone already looked at
+        this file and noted a likely client/server mismatch culprit. Skip
+        ahead to verifying it instead of re-deriving from scratch.</p>
+      </section>
+
+      <section>
+        <h2>Step 2 — verify the finding is current</h2>
+        <p>The Reef finding might be from three weeks ago and already
+        fixed. Check:</p>
+        <pre><code>&lcub;
+  "tool": "evidence_confidence",
+  "args": &lcub;
+    "subjectKind": "finding",
+    "subjectId": "&lt;finding id from step 1&gt;"
+  &rcub;
+&rcub;</code></pre>
+        <p>Returns a freshness label. If it's <code>contradicted</code>,
+        the file changed and the finding may be obsolete — re-run
+        <code>lint_files</code> on the layout. If it's
+        <code>fresh_indexed</code>, the suspicion is still valid.</p>
+      </section>
+
+      <section>
+        <h2>Step 3 — trace_error if you need broader context</h2>
+        <p>If <code>context_packet</code> didn't surface the right file:</p>
+        <pre><code>&lcub;
+  "tool": "trace_error",
+  "args": &lcub;
+    "term": "Hydration failed",
+    "limit": 30
+  &rcub;
+&rcub;</code></pre>
+        <p>Returns throw sites, catch handlers, and PL/pgSQL bodies that
+        match. For a runtime error this usually surfaces the React/Next
+        boundary that's emitting it (and any custom error handlers in
+        your app).</p>
+      </section>
+
+      <section>
+        <h2>Step 4 — live_text_search after edits</h2>
+        <p>You make a fix in <code>DistrictHeader</code> — wrap the
+        time-sensitive render in a <code>useEffect</code> so it only
+        runs on the client. Now you want to confirm there are no other
+        instances of the same pattern. Indexed
+        <code>cross_search</code> would be stale (you just edited).
+        Use <code>live_text_search</code>:</p>
+        <pre><code>&lcub;
+  "tool": "live_text_search",
+  "args": &lcub;
+    "query": "new Date(",
+    "pathGlob": "app/**/*.tsx",
+    "fixedStrings": true,
+    "maxMatches": 100
+  &rcub;
+&rcub;</code></pre>
+        <p>Now you have a fresh ground-truth list of every
+        <code>new Date(</code> in your app components. Audit them, fix
+        any other inline-date-during-render cases.</p>
+      </section>
+
+      <section>
+        <h2>Step 5 — record the finding (optional)</h2>
+        <p>If you discovered a real pattern, record it via
+        <code>finding_ack</code> — but only if the finding is reviewed
+        and intentional. Don't ack noise.</p>
+      </section>
+
+      <section>
+        <h2>Why this is faster than grep loops</h2>
+        <p>The agent went from "vague bug report" to "fix shipped" in
+        roughly 5 tool calls and ~2,000 tokens of context. The vanilla
+        path would have looked like 12 grep calls, 6 file reads, 8,000+
+        tokens, and the agent missing the prior Reef finding entirely.</p>
+        <p>The Reef finding from a prior session is the key win. Every
+        bug you debug becomes durable knowledge — the next person (or
+        agent) gets a head start.</p>
+      </section>
+
+      <section>
+        <h2>Tools used in this recipe</h2>
+        <ul>
+          <li><code>context_packet</code> — vague request → ranked context.</li>
+          <li><code>reef_scout</code> — broader scout packet of facts/findings/rules.</li>
+          <li><code>reef_inspect</code> — full evidence trail for one file/subject.</li>
+          <li><code>trace_error</code> — find throw/catch sites for an error term.</li>
+          <li><code>live_text_search</code> — exact current text on disk.</li>
+          <li><code>evidence_confidence</code> — freshness label for one piece of evidence.</li>
+          <li><code>file_findings</code> — durable findings on a file.</li>
+          <li><code>lint_files</code> — Mako rule-pack diagnostics.</li>
+        </ul>
+      </section>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="../concepts/freshness.html">How agentmako tracks freshness</a></li>
+          <li><a href="../concepts/context-packets.html">What is a context packet?</a></li>
+          <li><a href="./auth-flow-tracing.html">How to trace an auth flow</a></li>
+          <li><a href="../faq.html#stale">FAQ: why is agentmako returning stale results?</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

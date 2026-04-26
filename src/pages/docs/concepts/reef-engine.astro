@@ -1,0 +1,400 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="What is the Reef Engine? · agentmako"
+  description="Reef is agentmako's durable fact and finding layer — keeps facts, findings, freshness, and acks across sessions so the agent doesn't re-derive them every turn."
+  canonicalPath="/docs/concepts/reef-engine.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — Reef Engine concept explainer."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Concepts", "href": "/docs/concepts/"}, {"name": "Reef Engine", "href": "/docs/concepts/reef-engine.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Concept &middot; Reef Engine</span>
+    <h1 style="margin-top:1rem;">What is the <em>Reef Engine</em>?</h1>
+    <p class="doc-hero__sub">
+      <strong>The Reef Engine is agentmako's durable fact and finding
+      layer</strong> — it keeps indexed facts, lint/audit findings,
+      diagnostic runs, freshness labels, and review acknowledgements in
+      local SQLite so an AI coding agent does not have to re-derive the
+      same project knowledge every turn.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="tldr">
+          <h2>TL;DR</h2>
+          <p>Reef is the part of agentmako that remembers things. Indexed
+          facts (file → symbols), diagnostic findings (this file has an
+          eslint error), audit findings (this route is missing a tenant
+          scope), and human acknowledgements (we reviewed this and it's
+          fine) all live in the same local store. Reef tools let the agent
+          ask "what do you already know about this file?" before doing
+          the work over.</p>
+        </section>
+
+        <section id="why">
+          <h2>Why durable findings matter</h2>
+          <p>Without a persistence layer, every agent session starts from
+          zero. The same lint check runs again. The same auth audit runs
+          again. The same finding is reported, debated, and dismissed —
+          again. The agent has no concept that someone has already looked
+          at this file last week and decided "yes, the missing tenant
+          scope is intentional, the table is read-only by design."</p>
+
+          <p>Reef solves this with three primitives that survive across
+          sessions:</p>
+
+          <ul>
+            <li><strong>Facts</strong> — derived knowledge ("this function
+            is exported", "this route is GET /api/x", "this table has
+            RLS enabled").</li>
+            <li><strong>Findings</strong> — observations that may need
+            attention ("this file has an unused export", "this route is
+            missing an auth guard").</li>
+            <li><strong>Acks</strong> — explicit "we reviewed this, it's
+            fine, here's why" markers attached to findings.</li>
+          </ul>
+        </section>
+
+        <section id="facts-vs-findings">
+          <h2>Facts vs. findings</h2>
+          <p>The distinction matters because they decay differently.</p>
+
+          <p><strong>Facts</strong> are descriptive. "This file declares
+          symbol <code>verifySession</code>." A fact is true until the
+          file changes. When the index refreshes, contradicted facts get
+          marked.</p>
+
+          <p><strong>Findings</strong> are evaluative. "This route handler
+          is missing a tenant scope check." A finding can be: open (still
+          true), resolved (the code was fixed), suppressed (intentionally
+          ignored, with a reason), or stale (the code changed, finding
+          needs re-running).</p>
+
+          <p>Tools like <code>file_findings</code> and
+          <code>project_findings</code> read the finding store.
+          <code>project_facts</code> and <code>file_facts</code> read the
+          fact store. <code>reef_inspect</code> shows you both for a given
+          file plus the diagnostic-run history.</p>
+        </section>
+
+        <section id="anatomy">
+          <h2>Anatomy of a Reef row</h2>
+          <p>Both facts and findings carry enough metadata to answer:
+          <em>who claimed this, when, against what code, and how do I
+          dedup it?</em></p>
+
+          <h3>A fact</h3>
+          <pre><code>&lcub;
+  "factId": "fact_01H8K2…",
+  "subjectKind": "file",
+  "subjectId": "lib/auth/dal.ts",
+  "kind": "exports",
+  "value": &lcub; "name": "verifySession", "kind": "function" &rcub;,
+  "sourceTool": "project_index_refresh",
+  "indexedAt": "2026-04-26T15:14:02Z",
+  "fileHash": "a1c2…",
+  "freshness": "fresh_indexed"
+&rcub;</code></pre>
+
+          <h3>A finding</h3>
+          <pre><code>&lcub;
+  "findingId": "find_01H8K2…",
+  "code": "auth/missing-tenant-scope",
+  "severity": "warn",
+  "subjectKind": "file",
+  "subjectId": "lib/auth/dal.ts",
+  "line": 142,
+  "column": 9,
+  "snippet": "return await db.from('manager_district')…",
+  "identity": &lcub;
+    "matchBasedId": "auth/missing-tenant-scope:lib/auth/dal.ts:142:resolveManagerScope",
+    "ruleId": "auth/missing-tenant-scope"
+  &rcub;,
+  "sourceTool": "lint_files",
+  "createdAt": "2026-04-26T15:14:02Z",
+  "lastSeenAt": "2026-04-26T15:14:02Z",
+  "status": "open",
+  "ack": null
+&rcub;</code></pre>
+
+          <p>The two fields agents lean on most:</p>
+
+          <ul>
+            <li><strong><code>identity.matchBasedId</code></strong> — a
+            stable fingerprint built from the rule + file + a structural
+            anchor (function name, AST node) rather than line numbers.
+            Surviving across edits is the whole point: when you reformat
+            a file, the finding re-attaches to the same logical site
+            instead of disappearing and re-appearing as a "new" finding.</li>
+            <li><strong><code>status</code></strong> — one of
+            <code>open</code>, <code>resolved</code>, <code>suppressed</code>,
+            <code>stale</code>. Drives whether the finding shows up in
+            <code>project_findings</code> or
+            <code>project_open_loops</code>.</li>
+          </ul>
+        </section>
+
+        <section id="freshness">
+          <h2>Freshness, briefly</h2>
+          <p>Every Reef row carries enough metadata to be labeled as
+          live, fresh-indexed, stale, historical, contradicted, or
+          unknown. The agent shouldn't return a stale answer as a
+          confident one — it should know.</p>
+
+          <p>Full freshness model: <a href="./freshness.html">How
+          agentmako tracks freshness</a>.</p>
+        </section>
+
+        <section id="acks">
+          <h2>The ack ledger</h2>
+          <p>Some findings are intentional. A "this file uses
+          <code>any</code> in three places" warning may be the right call
+          for an integration boundary. Acking the finding records:
+          fingerprint of the match, who acked it, why, and when.</p>
+
+          <p>Two ack flows exist:</p>
+
+          <ul>
+            <li><code>finding_ack</code> — single ack, used for one
+            reviewed finding. Requires the fingerprint and a reason.</li>
+            <li><code>finding_ack_batch</code> — for sweeping reviews.
+            Same payload shape, applied across many findings.</li>
+          </ul>
+
+          <p>Ack data is never sent anywhere. It's a local ledger. Use
+          <code>finding_acks_report</code> before assuming a clean result
+          means no one suppressed anything — sometimes "all green" is
+          really "all green or already acked."</p>
+
+          <div class="callout">
+            <strong>Don't ack noise.</strong>
+            Acks are a real review action. If you're acking findings just
+            to make the dashboard quieter, you're losing the signal Reef
+            was built to keep.
+          </div>
+        </section>
+
+        <section id="tools">
+          <h2>How agents use Reef tools</h2>
+          <p>The most useful tools, in approximate order of how often an
+          agent should reach for them:</p>
+
+          <ul>
+            <li><code>reef_scout</code> — turn a fuzzy request into ranked
+            facts/findings/rules/diagnostic candidates. First call for
+            many vague tasks.</li>
+            <li><code>reef_inspect</code> — explain one file or subject:
+            facts, findings, recent diagnostics. First call before editing
+            a sensitive file.</li>
+            <li><code>file_findings</code> — list active findings for a
+            single file. Quick read before editing.</li>
+            <li><code>project_findings</code> — active findings across the
+            project. Useful for "what's on fire?" queries.</li>
+            <li><code>project_open_loops</code> — unresolved findings,
+            stale facts, and failed diagnostic runs in one view.</li>
+            <li><code>verification_state</code> — whether cached
+            diagnostics still cover current working-tree facts. Tells you
+            if "everything's fine" is current or stale.</li>
+            <li><code>project_conventions</code> — discovered auth guards,
+            runtime boundaries, route patterns, schema usage conventions
+            — without re-reading the codebase.</li>
+            <li><code>evidence_confidence</code> — label a piece of
+            evidence as fresh, stale, contradicted, or unknown.</li>
+          </ul>
+
+          <p>Read-only Reef tools batch well. Use <code>tool_batch</code>
+          when you want freshness, conventions, and open loops in one
+          round-trip.</p>
+        </section>
+
+        <section id="lifecycle">
+          <h2>Lifecycle: how a finding moves</h2>
+          <p>A finding's <code>status</code> is not just a flag — it's the
+          result of a small state machine driven by re-runs of the source
+          tool, file edits, and human review.</p>
+
+          <pre><code>             ┌──────────┐
+   create →  │   open   │  ─── ack with reason ─→  ┌────────────┐
+             └────┬─────┘                          │ suppressed │
+                  │                                └────────────┘
+       (re-run, still matches)                              │
+                  │                                         │
+                  ▼                          (file changes,
+             ┌──────────┐  ── re-run, no match ─→  ack auto-revoked)
+             │  stale   │                                   │
+             └────┬─────┘                                   ▼
+                  │                                  ┌──────────┐
+       (re-run, no match)                            │   open   │
+                  │                                  └──────────┘
+                  ▼
+             ┌──────────┐
+             │ resolved │
+             └──────────┘</code></pre>
+
+          <p>Transitions:</p>
+
+          <ul>
+            <li><strong>open → suppressed</strong>: a human (or agent under
+            instructions) calls <code>finding_ack</code> with a reason.
+            The ack is bound to the finding's
+            <code>identity.matchBasedId</code> — not its line number — so
+            it survives reformatting.</li>
+            <li><strong>open → stale</strong>: the file changed in a way
+            that may have invalidated the finding, but no diagnostic has
+            re-run yet. The finding still appears in
+            <code>project_open_loops</code> as "needs re-check," not as
+            "still failing."</li>
+            <li><strong>stale → resolved</strong>: a re-run produces no
+            matching finding. Reef closes it out automatically.</li>
+            <li><strong>stale → open</strong>: a re-run produces the same
+            finding again. The original <code>findingId</code> is reused
+            because <code>matchBasedId</code> matches.</li>
+            <li><strong>suppressed → open</strong>: the file changed
+            structurally enough that the structural anchor in
+            <code>matchBasedId</code> no longer matches the ack target.
+            The ack is auto-revoked. This prevents stale acks from hiding
+            real bugs that snuck in during a refactor.</li>
+          </ul>
+        </section>
+
+        <section id="storage">
+          <h2>Where Reef lives on disk</h2>
+          <p>Reef is a local SQLite database. There is no hosted Reef
+          service. Two on-disk locations matter:</p>
+
+          <ul>
+            <li><code>~/.mako-ai/</code> — global Mako state (project
+            registry, model-provider keychain references). Not project
+            data.</li>
+            <li><code>&lt;project-root&gt;/.mako-ai/</code> — per-project
+            Reef store. Indexed facts, findings, ack ledger, diagnostic
+            run history, scoped instructions all live here.</li>
+          </ul>
+
+          <p>You can <code>git add .mako-ai/</code> if you want findings
+          and acks to travel with the repo for the team — or
+          <code>.gitignore</code> it if Reef is one-developer state. Both
+          are valid; the design assumes you can choose.</p>
+
+          <div class="callout">
+            <strong>Privacy note</strong>
+            <p>Reef contents are never sent anywhere. agentmako has no
+            telemetry. The only outbound traffic is the optional model
+            provider you configure for the harness, or the Postgres /
+            Supabase connection you opt in to. See
+            <a href="https://github.com/drhalto/agentmako/blob/main/PRIVACY.md">PRIVACY.md</a>.</p>
+          </div>
+        </section>
+
+        <section id="practice">
+          <h2>Reef in practice</h2>
+          <p>Three real workflows that come up often:</p>
+
+          <h3>Investigating a noisy finding</h3>
+          <p>A diagnostic run produces 30 findings of the same code on
+          the same file after a refactor. Are these new bugs or one
+          existing pattern that the indexer rediscovered?</p>
+          <ol>
+            <li>Call <code>file_findings</code> on the file. Look at
+            <code>createdAt</code> vs <code>lastSeenAt</code> — if all 30
+            were created in the same run, this is one pattern repeating,
+            not 30 separate bugs.</li>
+            <li>Open one finding and read its <code>identity.matchBasedId</code>.
+            That tells you whether they're structurally the same site or
+            distinct.</li>
+            <li>If the pattern is intentional (e.g., a generated SDK file
+            that legitimately uses <code>any</code>), use
+            <code>finding_ack_batch</code> with a clear reason. Future
+            re-runs auto-suppress the same set.</li>
+          </ol>
+
+          <h3>Carrying findings into a new agent session</h3>
+          <p>You ended a long Claude Code session yesterday with several
+          unresolved findings. Today you start fresh.</p>
+          <ol>
+            <li>Have the agent call <code>project_open_loops</code>. It
+            returns yesterday's unresolved findings, stale facts, and any
+            failed diagnostic runs.</li>
+            <li>For each finding worth investigating, call
+            <code>reef_inspect</code> to get the full evidence trail.</li>
+            <li>The agent now has the same picture you ended on, without
+            you having to summarize it in a prompt.</li>
+          </ol>
+
+          <h3>Verifying that "all green" is current</h3>
+          <p>Diagnostics passed. But did they pass <em>today</em>?</p>
+          <ol>
+            <li><code>verification_state</code> reports whether cached
+            diagnostic runs still cover the current working-tree facts.</li>
+            <li>If it returns <code>stale</code>, the green is from
+            before recent edits — not a current guarantee.</li>
+            <li>Run <code>diagnostic_refresh</code> to bring it current
+            before relying on the result.</li>
+          </ol>
+        </section>
+
+        <section id="not">
+          <h2>What Reef is not</h2>
+          <ul>
+            <li><strong>Not a vector store.</strong> Reef stores typed
+            rows with stable identities — not embeddings of code chunks.
+            It does deterministic lookups, not similarity search.</li>
+            <li><strong>Not a hosted service.</strong> The whole store
+            sits in a local SQLite file under <code>.mako-ai/</code>. No
+            sync, no upload, no SaaS account.</li>
+            <li><strong>Not a replacement for tests.</strong> Reef tracks
+            what diagnostics have said and what humans have acked. Your
+            test suite is still authoritative for "does the code work?".</li>
+            <li><strong>Not a static analyzer.</strong> Reef is the
+            persistence layer underneath the analyzers (TS, ESLint,
+            Biome, Mako rules). Findings come from those tools; Reef
+            keeps them durable.</li>
+          </ul>
+        </section>
+
+        <section id="pitfalls">
+          <h2>Common pitfalls</h2>
+          <ul>
+            <li><strong>Acking to silence noise.</strong> Acks should
+            mean "reviewed and intentional." If you ack to make the
+            dashboard quieter, you're trading durable signal for empty
+            calm. Use <code>finding_acks_report</code> periodically to
+            audit what's been suppressed and why.</li>
+            <li><strong>Trusting stable answers as fresh.</strong>
+            <code>cross_search</code> hits Reef, which can be stale.
+            After edits, prefer <code>live_text_search</code> for exact
+            current text, or refresh with
+            <code>project_index_refresh &lcub; mode: "if_stale" &rcub;</code>.</li>
+            <li><strong>Treating Reef as a TODO list.</strong> Findings
+            describe what diagnostics observed, not work you've planned.
+            Use your issue tracker for tasks; use Reef for evidence.</li>
+            <li><strong>Forcing a refresh on every turn.</strong>
+            <code>mode: "force"</code> re-parses the whole repo and is
+            slow on large codebases. Reach for it only when indexed
+            answers look <em>wrong</em>, not just <em>old</em>.</li>
+          </ul>
+        </section>
+
+        <section id="related">
+          <h2>Related</h2>
+          <ul>
+            <li><a href="./freshness.html">How agentmako tracks freshness</a> — the per-evidence labels Reef uses.</li>
+            <li><a href="./context-packets.html">What is a context packet?</a> — context_packet pulls activeFindings from Reef.</li>
+            <li><a href="./mcp.html">What is the Model Context Protocol?</a> — how Reef tools get exposed to agents.</li>
+            <li><a href="../recipes/safe-refactoring.html">Refactor safely with AI agents</a> — recipe that leans on Reef heavily.</li>
+            <li><a href="../faq.html">FAQ</a> — common questions about agentmako and codebase context.</li>
+          </ul>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

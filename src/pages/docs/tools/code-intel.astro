@@ -1,0 +1,123 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Code intelligence tools — repo_map, cross_search, ast_find_pattern · agentmako"
+  description="The code intelligence cluster — repo_map, cross_search, ast_find_pattern, live_text_search, symbols_of, imports_impact, and friends."
+  canonicalPath="/docs/tools/code-intel.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Tools", "href": "/docs/tools/"}, {"name": "Code intelligence", "href": "/docs/tools/code-intel.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Tools &middot; Code intelligence</span>
+    <h1 style="margin-top:1rem;"><em>Code intelligence</em> tools</h1>
+    <p class="doc-hero__sub">
+      The toolkit for asking concrete code questions — what's the
+      shape of this repo, where is symbol X, who imports file Y, what
+      AST patterns match, what's actually on disk right now.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <article id="repo_map">
+        <h2><code>repo_map</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Token-budgeted aider-style outline of ranked files and key symbols.</p>
+        <h3>When to use it</h3>
+        <p>Onboarding the agent to an unfamiliar repo. Returns a high-signal map at a fixed token budget instead of a directory listing.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "budgetTokens": 4000 &rcub;</code></pre>
+      </article>
+
+      <article id="cross_search">
+        <h2><code>cross_search</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Search one term across code chunks, schema objects, RPC/trigger bodies, routes, and memories.</p>
+        <h3>When to use it</h3>
+        <p>Broad indexed search when you want to know everywhere a name appears — not just in app code, but in DB and Reef memories too. Use <code>verbosity: "compact"</code> on noisy hits.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "term": "admin_audit_log", "limit": 20 &rcub;</code></pre>
+      </article>
+
+      <article id="ast_find_pattern">
+        <h2><code>ast_find_pattern</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Run ast-grep structural search over fresh indexed JS/TS/JSX/TSX files.</p>
+        <h3>When to use it</h3>
+        <p>When you need real call sites, not text matches. Catches defaulted exports, dynamic imports, and patterns grep can't see.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "pattern":   "supabase.from($TABLE)",
+  "languages": ["ts", "tsx"],
+  "pathGlob":  "app/**/*.tsx",
+  "maxMatches": 200
+&rcub;</code></pre>
+      </article>
+
+      <article id="live_text_search">
+        <h2><code>live_text_search</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Live ripgrep over the working tree for exact disk text. Defaults to fixed-string search.</p>
+        <h3>When to use it</h3>
+        <p>After edits. The index may be stale; <code>live_text_search</code> reads from the current filesystem.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "query":      "verifySession(",
+  "pathGlob":   "lib/**/*.ts",
+  "fixedStrings": true,
+  "maxMatches": 100
+&rcub;</code></pre>
+      </article>
+
+      <article id="symbols_of">
+        <h2><code>symbols_of</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>List indexed symbols declared in a file.</p>
+        <h3>When to use it</h3>
+        <p>Quick way to learn what a file exposes without re-reading the file.</p>
+      </article>
+
+      <article id="imports_impact">
+        <h2><code>imports_impact</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace indexed files that depend on a file.</p>
+        <h3>When to use it</h3>
+        <p>Before any rename or breaking change. Returns the import graph of dependents — including barrel re-exports.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "filePath": "lib/users/queries.ts", "limit": 200 &rcub;</code></pre>
+        <p>See <a href="../recipes/safe-refactoring.html">How to refactor safely</a> for the full workflow.</p>
+      </article>
+
+      <article id="imports_hotspots">
+        <h2><code>imports_hotspots</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Most widely-imported files in the project.</p>
+        <h3>When to use it</h3>
+        <p>"Where does the most damage start?" — refactoring centrality.</p>
+      </article>
+
+      <article id="imports_cycles">
+        <h2><code>imports_cycles</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Detect circular imports across the indexed module graph.</p>
+      </article>
+
+      <article id="exports_of">
+        <h2><code>exports_of</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>List exports surfaced by a file. Useful as a preflight before editing the file's public surface.</p>
+      </article>
+
+      <article id="imports_deps">
+        <h2><code>imports_deps</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>What this file imports, and from where. Inverse of <code>imports_impact</code>.</p>
+      </article>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="./flow.html">Trace &amp; flow tools</a> — route_trace, trace_file, graph_path.</li>
+          <li><a href="./reef.html">Reef tools</a> — durable findings on the same files.</li>
+          <li><a href="../recipes/safe-refactoring.html">Refactor safely with AI</a></li>
+          <li><a href="../faq.html#understand-whole-codebase">FAQ: how do I make Cursor / Claude Code understand my whole codebase?</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

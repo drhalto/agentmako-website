@@ -1,0 +1,380 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="The tenant-leak audit you didn't know you needed"
+  description="Multi-tenant Supabase apps leak data through RLS gaps that look like normal code. Your AI coding agent won't catch them — they're invisible without database awareness. Here's what to audit, why agents miss it, and how to fix it."
+  canonicalPath="/blog/tenant-leak-audit-supabase-rls.html"
+  publishedAt="2026-04-26"
+  readingTimeMin={10}
+  tags={["security", "supabase", "rls", "multi-tenant"]}
+  ogImageAlt="agentmako — multi-tenant RLS audit for AI coding agents"
+>
+
+<p>The worst bugs in multi-tenant SaaS apps look like normal code. No
+crash, no error, no stack trace. Tenant A's customer just sees Tenant
+B's data, and you find out about it from a screenshot in a support
+ticket.</p>
+
+<p>If you're on Supabase or any Postgres-with-row-level-security stack,
+the surface area is enormous and your AI coding agent doesn't know
+about most of it. Claude Code, Cursor, and Codex can read your TypeScript
+all day; they have no idea whether the table you just queried actually
+enforces a tenant scope. They'll happily ship the bug for you.</p>
+
+<p>This post is about what a tenant-leak audit actually checks, why
+agents need explicit help to do it, and a concrete workflow for running
+one — including the bugs it finds that no test suite will catch.</p>
+
+<h2>What a tenant leak looks like</h2>
+
+<p>The most common shape:</p>
+
+<pre><code>// app/api/projects/route.ts
+export async function GET(req: Request) &lcub;
+  const user = await verifySession(req);
+  const &lcub; data &rcub; = await supabase
+    .from("projects")
+    .select("*");
+  return Response.json(data);
+&rcub;</code></pre>
+
+<p>Looks fine. Reads a table, returns the rows. Test passes — the user
+has projects, they get projects back.</p>
+
+<p>What's missing: the query has no <code>.eq("org_id", user.orgId)</code>
+filter. Whether that's a bug depends entirely on the RLS policy on
+<code>projects</code>. If RLS is enforced and the policy correctly
+checks <code>auth.uid()</code> against an <code>org_membership</code>
+table, the database silently filters and the code is correct. If RLS
+is disabled, or the policy is <code>using (true)</code>, or the
+policy compares against the wrong column — every user gets every
+project.</p>
+
+<p>This is the trap: <strong>the same code is either correct or
+catastrophically wrong, depending entirely on database state your AI
+agent never sees.</strong></p>
+
+<h2>The five common shapes</h2>
+
+<p>Real cross-tenant leaks I've seen (or shipped, then fixed):</p>
+
+<h3>1. RLS off on a tenant-keyed table</h3>
+
+<p>Someone created the table for a quick prototype, forgot to
+<code>ALTER TABLE ... ENABLE ROW LEVEL SECURITY</code>, and shipped.
+The migration history shows the table; it does not show RLS being
+enabled. By default in Supabase, new tables have RLS off until you
+turn it on.</p>
+
+<h3>2. RLS on, but the policy is <code>using (true)</code></h3>
+
+<p>Common during early development:</p>
+
+<pre><code>create policy "allow all" on projects
+  for select using (true);</code></pre>
+
+<p>Effectively the same as RLS off, but harder to spot — the table
+shows as "RLS enabled" in the Supabase dashboard. Devs see the green
+shield and assume they're protected.</p>
+
+<h3>3. Policy compares the wrong column</h3>
+
+<pre><code>create policy "tenant select" on projects
+  for select using (auth.uid() = user_id);</code></pre>
+
+<p>This filters by user, not org. If a user belongs to multiple orgs
+and the projects belong to orgs (not users), the comparison is
+nonsense — sometimes it permits, sometimes it doesn't, in ways that
+depend on row ordering and joins.</p>
+
+<h3>4. <code>SECURITY DEFINER</code> RPC bypasses RLS</h3>
+
+<p>A Postgres function declared <code>SECURITY DEFINER</code> runs with
+the permissions of its owner, not the caller. RLS still applies — but
+to the <em>owner's</em> session, not the user's. If the function
+doesn't manually filter, it returns everything.</p>
+
+<pre><code>create function get_dashboard_stats()
+returns table (...) language sql
+security definer
+as $$
+  -- no tenant filter — returns stats for ALL orgs
+  select count(*) from projects;
+$$;</code></pre>
+
+<p>App code calls <code>supabase.rpc("get_dashboard_stats")</code> and
+gets numbers from every tenant in the system, mixed together.</p>
+
+<h3>5. Service role key on the client</h3>
+
+<p>Supabase ships two keys per project: <code>anon</code> (subject to
+RLS) and <code>service_role</code> (bypasses RLS entirely). The
+service-role key shipping in the browser bundle defeats the whole
+security model. Every query runs as god mode.</p>
+
+<p>This used to be a common bug because the env var names look similar
+(<code>SUPABASE_ANON_KEY</code> vs <code>SUPABASE_SERVICE_ROLE_KEY</code>),
+and a single typo in <code>.env</code> moves you from "secure" to
+"every user is admin."</p>
+
+<h2>Why your AI agent won't catch any of this</h2>
+
+<p>Three reasons, in increasing severity:</p>
+
+<h3>It can't see your database</h3>
+
+<p>Out of the box, Claude Code or Cursor knows your TypeScript. It does
+not know your schema. It cannot query <code>pg_policies</code>. It
+doesn't know which of your 47 tables have RLS enabled, which policies
+reference which columns, or which functions are
+<code>SECURITY DEFINER</code>.</p>
+
+<p>You can paste your schema into <code>CLAUDE.md</code>, but that's a
+snapshot. It goes stale the next migration. The agent will edit code
+that contradicts policies it doesn't know exist.</p>
+
+<h3>The bug pattern looks like working code</h3>
+
+<p>Even if the agent could see the schema, the leaks don't <em>look
+wrong</em> in the code. A query without a tenant filter is correct
+when RLS is enforced. A query with a tenant filter is correct when
+RLS is off. The "right answer" depends on database state, not code
+shape. Static analysis on the TypeScript alone can't decide.</p>
+
+<h3>Tests don't fail on cross-tenant leaks</h3>
+
+<p>Most test suites use one tenant. They check that the data they
+inserted comes back. They don't check that <em>another tenant's</em>
+data doesn't come back. You'd need a multi-tenant integration test
+explicitly designed to catch leaks — and almost no one writes those
+until after their first incident.</p>
+
+<p>So: a tool the agent can't see, a bug pattern that looks like
+working code, and a test suite that doesn't probe the right axis. The
+leak ships.</p>
+
+<h2>What an audit actually checks</h2>
+
+<p>A working tenant-leak audit asks four questions, each with a
+specific lookup:</p>
+
+<ol>
+  <li><strong>Which tables are tenant-keyed?</strong> Tables with an
+  <code>org_id</code>, <code>tenant_id</code>, <code>workspace_id</code>,
+  or similar column. Discoverable from the schema.</li>
+  <li><strong>For each tenant-keyed table: is RLS enabled, and does
+  the policy actually reference the tenant column?</strong> Two queries
+  on <code>pg_class</code> and <code>pg_policies</code>.</li>
+  <li><strong>Are any <code>SECURITY DEFINER</code> functions touching
+  these tables without filtering?</strong> Read function bodies, look
+  for the tenant column.</li>
+  <li><strong>Are app-code queries against these tables happening
+  inside authenticated routes that establish a session?</strong> Walk
+  the import graph from each <code>.from(...)</code> call back to its
+  route handler.</li>
+</ol>
+
+<p>None of these questions are answerable from your TypeScript alone.
+Each is answerable from a typed query against a live database
+introspection. That's the gap an MCP server with database awareness
+fills.</p>
+
+<h2>The audit, concretely</h2>
+
+<p>agentmako exposes a <code>tenant_leak_audit</code> MCP tool that
+runs the above against your live Postgres. Sample output:</p>
+
+<pre><code>tenant_leak_audit(&lcub;&rcub;)
+
+→ &lcub;
+  flagged: [
+    &lcub;
+      table: "projects",
+      issue: "rls_disabled",
+      severity: "high",
+      detail: "Table has org_id column but RLS is disabled."
+    &rcub;,
+    &lcub;
+      table: "manager_district",
+      issue: "policy_wrong_column",
+      severity: "high",
+      detail: "RLS policy references auth.uid() = user_id but table is keyed by district_id."
+    &rcub;,
+    &lcub;
+      function: "get_dashboard_stats",
+      issue: "security_definer_no_filter",
+      severity: "medium",
+      detail: "SECURITY DEFINER function reads tenant-keyed tables without filter."
+    &rcub;,
+    &lcub;
+      route: "/api/projects",
+      issue: "from_call_outside_session",
+      severity: "low",
+      detail: "Direct .from('projects') call without verifySession() in scope."
+    &rcub;
+  ],
+  passed: 23,
+  total_tenant_tables: 27
+&rcub;</code></pre>
+
+<p>The audit isn't proving anything. It's surfacing the things a human
+should look at. Each finding maps to a specific table, function, or
+route, with the exact reason it was flagged.</p>
+
+<h2>From flag to fix: a real walkthrough</h2>
+
+<p>Take the first flag — <code>projects</code> has an
+<code>org_id</code> column but RLS is disabled. The agent's job:
+read the policy, write the migration, verify.</p>
+
+<h3>Step 1: get the existing schema</h3>
+
+<pre><code>db_table_schema(&lcub; schema: "public", table: "projects" &rcub;)
+
+→ columns: [id uuid, org_id uuid, name text, created_at timestamptz],
+  rls: &lcub; enabled: false, policies: [] &rcub;,
+  indexes: [...]</code></pre>
+
+<p>Confirms the audit. Now the agent knows the column shape and can
+write the migration without guessing.</p>
+
+<h3>Step 2: find every read site</h3>
+
+<pre><code>schema_usage(&lcub; schema: "public", object: "projects" &rcub;)
+
+→ reads:  ["app/api/projects/route.ts:8 — .from('projects').select('*')",
+           "app/dashboard/page.tsx:42 — .from('projects').select('id, name')"],
+  writes: ["app/api/projects/route.ts:31 — .from('projects').insert(...)"],
+  rpc_refs: []</code></pre>
+
+<p>Two reads, one write. The agent can now reason about which need a
+manual filter and which will be covered by RLS.</p>
+
+<h3>Step 3: write the migration</h3>
+
+<pre><code>alter table public.projects enable row level security;
+
+create policy "projects: org members can read"
+  on public.projects
+  for select
+  using (
+    exists (
+      select 1 from public.org_membership m
+      where m.user_id = auth.uid()
+        and m.org_id = projects.org_id
+    )
+  );
+
+create policy "projects: org admins can write"
+  on public.projects
+  for all
+  using (
+    exists (
+      select 1 from public.org_membership m
+      where m.user_id = auth.uid()
+        and m.org_id = projects.org_id
+        and m.role = 'admin'
+    )
+  );</code></pre>
+
+<p>The agent writes this migration with full knowledge of the schema
+shape (the <code>org_membership</code> join), not from a guess. The
+policies map cleanly to existing app-code expectations.</p>
+
+<h3>Step 4: refresh and re-audit</h3>
+
+<pre><code>db_reef_refresh()
+tenant_leak_audit(&lcub;&rcub;)
+
+→ &lcub; flagged: [...3 remaining...], passed: 24, total_tenant_tables: 27 &rcub;</code></pre>
+
+<p>The <code>projects</code> table is gone from the flagged list. The
+remaining three are still there for the next round.</p>
+
+<h2>The findings persist</h2>
+
+<p>Important detail: the audit results live in Reef — agentmako's
+durable findings store. That means:</p>
+
+<ul>
+  <li>The next agent session knows what's already been audited.</li>
+  <li>If you ack a finding ("policy_wrong_column on
+  <code>manager_district</code> — intentional, this is a global
+  reference table not tenant-keyed"), the ack is bound to the
+  finding's identity, not its line number. Future re-runs respect
+  it.</li>
+  <li>If a migration changes the schema such that a previously-acked
+  finding no longer matches the same target, the ack auto-revokes —
+  forcing a re-review instead of silently hiding a new bug.</li>
+</ul>
+
+<p>This matters because tenant-leak audits aren't one-shot. Schemas
+change. Migrations land. Someone disables RLS for a hotfix and forgets
+to turn it back on. Persistent findings make this catch the regression
+on the next run, not three months later.</p>
+
+<h2>Beyond Supabase</h2>
+
+<p>The same audit shape works for any Postgres app — Drizzle, Prisma,
+Kysely, raw <code>pg</code>. The tools that change:</p>
+
+<ul>
+  <li>Supabase apps: <code>auth.uid()</code> is the session anchor;
+  policies usually reference an <code>org_membership</code> or
+  <code>workspace_membership</code> join.</li>
+  <li>Generic Postgres: session anchor is whatever your auth layer
+  sets via <code>SET app.user_id = '...'</code>; policies reference
+  that.</li>
+  <li>Drizzle / Prisma / Kysely: the <code>.from()</code> style call
+  detection becomes ORM-method detection. agentmako's
+  <code>schema_usage</code> covers all of these.</li>
+</ul>
+
+<p>The pattern doesn't depend on Supabase specifically. It depends on:
+(a) RLS as the enforcement layer, (b) a structured way to query schema
++ policies, (c) a structured way to find app-code call sites. Any
+stack with those three has the same audit available.</p>
+
+<h2>What this means for shipping</h2>
+
+<p>Add the audit to your pre-commit hook, or run it weekly, or both.
+Either way:</p>
+
+<ul>
+  <li>Your AI coding agent's mistakes become catchable. The agent ships
+  a route without a tenant filter; the audit flags it; the agent
+  re-runs the policy check before merging.</li>
+  <li>Schema migrations don't silently regress security. RLS-disabled
+  tables surface immediately, not at the next external audit.</li>
+  <li>Service-role-key-on-client mistakes get caught by the auxiliary
+  checks in the same audit pass.</li>
+</ul>
+
+<p>None of this requires you to write a custom static analyzer. The
+audit is a single MCP tool call. The trick is having a context engine
+that can see the database <em>and</em> the code <em>and</em> the
+import graph in one place — which is exactly what
+<a href="/">agentmako</a> ships.</p>
+
+<h2>Try it</h2>
+
+<p>If you're on Supabase or Postgres and have RLS-protected tables:</p>
+
+<ol>
+  <li><code>npm install -g agentmako</code></li>
+  <li><code>agentmako connect .</code> — interactive, prompts for your DB URL (stored in your OS keychain).</li>
+  <li>In your agent, call <code>tenant_leak_audit</code> with no args.</li>
+  <li>Read the flagged list. Fix the easy ones. Ack the intentional
+  ones with a reason.</li>
+</ol>
+
+<p>It takes about 30 seconds. The first time you run it, you'll
+probably find at least one issue you didn't know was there. That's
+the point — these bugs are invisible until something explicitly looks
+for them.</p>
+
+<p>Better to find your tenant leak from a tool than from a screenshot
+in a support ticket.</p>
+
+</BlogLayout>

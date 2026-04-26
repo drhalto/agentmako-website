@@ -1,0 +1,363 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="grep, ripgrep, ast-grep, and what AI coding agents actually need"
+  description="grep is excellent. ripgrep made it faster. ast-grep made it structural. None of them are the right primitive when an AI coding agent is doing the searching. Here's why — and what to use instead."
+  canonicalPath="/blog/grep-ripgrep-ast-grep-vs-typed-tools.html"
+  publishedAt="2026-04-26"
+  readingTimeMin={9}
+  tags={["search", "mcp", "tooling"]}
+  ogImageAlt="agentmako — typed code search for AI coding agents"
+>
+
+<p>Open any AI coding agent's transcript and one tool dominates the
+log: <code>grep</code>. Or its faster cousin <code>rg</code>. The agent
+greps at the start of a turn, in the middle, after every file it
+reads. It's the default move.</p>
+
+<p>That makes sense — grep is a fantastic tool. It's been refined for
+50 years, runs on every machine, and answers a real question quickly:
+"where does this string appear?" If you're a human poking through a
+codebase, it's almost always the right first move.</p>
+
+<p>The problem isn't grep. The problem is that grep was designed for
+humans who can read context. AI coding agents can't, not in the same
+way. When the same primitive that works for a developer at the
+terminal is fed to a model that needs ranked, typed, deterministic
+context, it falls over in expensive ways.</p>
+
+<p>This post is about what grep (and ripgrep, and ast-grep) do well,
+where they fall over for agents, and what to use instead.</p>
+
+<h2>What grep does well</h2>
+
+<p>Three things grep is genuinely the best tool for:</p>
+
+<ul>
+  <li><strong>Exact-text matching.</strong> If you know the literal
+  string you're looking for — an error message, a config key, a magic
+  number — grep finds every instance with no false negatives.</li>
+  <li><strong>Speed.</strong> ripgrep can churn through a 100k-file
+  monorepo in under a second. Performance was a solved problem before
+  most current language tooling existed.</li>
+  <li><strong>Ubiquity.</strong> No setup, no index, no daemon. Works
+  on a fresh checkout, works on a server you SSH'd into, works in CI.</li>
+</ul>
+
+<p>Those properties matter. They're why grep is the first thing every
+agent reaches for. They're also why the answer isn't "agents shouldn't
+search" — they should. The question is what they're asking grep to do
+that grep was never built for.</p>
+
+<h2>The four things grep can't do</h2>
+
+<h3>1. It can't separate signal from noise</h3>
+
+<p>Search for <code>verifySession</code> in a real codebase. You get
+matches in:</p>
+
+<pre><code>$ rg -n "verifySession" .
+lib/auth/dal.ts:142:  return verifySession(req)
+lib/auth/dal.test.ts:18:  it("verifySession returns null on bad token", ...
+docs/auth.md:5:  The `verifySession` helper is the single...
+node_modules/.pnpm/some-package/dist/types.d.ts:42: ...
+test/__mocks__/lib/auth/dal.ts:3:  export const verifySession = vi.fn();
+.git/objects/pack/pack-1234.idx (binary file matches)</code></pre>
+
+<p>Six matches. Two are useful — the source and the test. Four are
+noise. The agent has no idea which is which until it reads each one.
+That's 4 wasted turns and several thousand tokens of file content
+piped through context.</p>
+
+<h3>2. It can't follow imports</h3>
+
+<p>You renamed an exported function. Who depends on it? grep finds the
+literal string but misses:</p>
+
+<ul>
+  <li>Re-exports through barrels: <code>export &lcub; verifySession &rcub; from "./dal"</code></li>
+  <li>Default-export imports: <code>import auth from "./dal"; auth.verifySession(...)</code></li>
+  <li>Dynamic imports: <code>const &lcub; verifySession &rcub; = await import("./dal")</code></li>
+  <li>Generated client SDKs that re-export from your source</li>
+</ul>
+
+<p>Your AI agent does what it can — it greps for variations,
+hopes for the best. The result is a refactor that "passes all tests"
+because the broken callers were behind a barrel re-export and grep
+never saw them.</p>
+
+<h3>3. It can't reason about routes, schemas, or graphs</h3>
+
+<p>"What handler responds to <code>POST /api/manager/onboarding</code>?"
+is not a string-matching question. The route file might be at
+<code>app/api/manager/onboarding/route.ts</code> if you use Next.js
+App Router, or <code>pages/api/manager/onboarding.ts</code> for the
+older router, or wired through a custom dispatcher in
+<code>server/router.ts</code> that pattern-matches paths.</p>
+
+<p>grep finds the literal path string. It doesn't find <em>the
+handler</em>. To get the handler, you need to know the framework's
+routing convention. To get the file the handler imports its
+business logic from, you need the import graph. To get the database
+tables that handler touches, you need to parse <code>.from(...)</code>
+calls and resolve them against your schema.</p>
+
+<p>None of that is grep's job, and it shouldn't be.</p>
+
+<h3>4. It can't tell you what's current</h3>
+
+<p>You ran a lint check three turns ago and got a list of findings.
+Are those findings still accurate after the edits you made since? grep
+has no concept of state. It re-runs from scratch every time. The agent
+has to ask you, or re-run the lint, or guess.</p>
+
+<p>For a human, "I just edited this file, the old findings might be
+stale" is obvious. For an agent dumping grep output into context, every
+result is unlabeled — fresh, stale, contradicted, all the same.</p>
+
+<h2>ripgrep and ast-grep partly help</h2>
+
+<p>The community has built two excellent grep evolutions, both worth
+knowing:</p>
+
+<p><strong>ripgrep (rg)</strong> respects <code>.gitignore</code> and
+common ignore patterns by default, and it's faster than vanilla grep.
+That fixes the noise problem on the
+<code>node_modules</code>-and-<code>.git</code> axis. It does not fix
+the rest.</p>
+
+<p><strong>ast-grep</strong> (and similar tools like
+<code>tree-grepper</code>, <code>semgrep</code>) match on the abstract
+syntax tree, not text. Asking for <code>verifySession($ARG)</code>
+returns actual call sites, not text matches in comments and strings.
+That fixes problem #1 within the file, but not the import graph,
+routing, schema, or freshness problems.</p>
+
+<p>If you're a human searching a codebase, ripgrep + ast-grep is a
+phenomenal upgrade. If you're an AI agent, you've fixed maybe 30% of
+the cost.</p>
+
+<h2>What an agent actually needs</h2>
+
+<p>The thing an agent needs isn't a better grep. It's a search surface
+that returns <em>typed graph nodes</em> instead of text matches. Each
+result should be:</p>
+
+<ul>
+  <li><strong>Ranked</strong> — the most likely answer first, with a
+  reason, not a flat list of every line that matched.</li>
+  <li><strong>Typed</strong> — a function declaration vs. a function
+  call vs. a comment vs. a test fixture. The agent doesn't need to
+  guess.</li>
+  <li><strong>Linked</strong> — every result carries its place in the
+  import graph, route table, or schema, so the agent can traverse
+  one hop without another search.</li>
+  <li><strong>Fresh-labeled</strong> — every row says whether it's
+  current, indexed-but-stale, or contradicted by a newer fact.</li>
+</ul>
+
+<p>None of that is exotic. It's the same model your IDE uses to
+implement "Go to Definition" or "Find All References." The trick is
+exposing it as a tool an MCP server can hand to an agent.</p>
+
+<h2>Concrete: grep vs the typed alternatives</h2>
+
+<p>Here's the same question asked five different ways. Same codebase.
+Same target. Different cost and clarity.</p>
+
+<h3>"Where is the auth callback for the manager onboarding route?"</h3>
+
+<p><strong>With grep:</strong></p>
+<pre><code>$ rg -n "manager/onboarding" .
+$ rg -n "verifySession" lib/
+$ ls app/api/manager
+$ cat app/api/manager/onboarding/route.ts
+$ cat lib/auth/dal.ts
+$ rg -n "resolveManager" lib/
+
+# 6 turns, ~5,000 tokens of output, agent assembles a guess</code></pre>
+
+<p><strong>With <code>auth_path</code>:</strong></p>
+<pre><code>auth_path(&lcub; route: "/api/manager/onboarding", verb: "POST" &rcub;)
+
+→ &lcub;
+  guards: ["lib/auth/dal.ts:resolveManagerScope:142"],
+  routeFile: "app/api/manager/onboarding/route.ts",
+  tablesTouched: ["manager_district", "onboarding_state"],
+  rlsState: "enforced",
+&rcub;
+
+# 1 turn, ~400 tokens, fully typed</code></pre>
+
+<h3>"Who imports this file?"</h3>
+
+<p><strong>With grep:</strong></p>
+<pre><code>$ rg -n "from ['\"].*queries['\"]" .
+$ rg -n "import .* queries" .
+$ rg -n "require.*queries" .
+
+# misses barrel re-exports, dynamic imports, default exports,
+# and generated SDK files</code></pre>
+
+<p><strong>With <code>imports_impact</code>:</strong></p>
+<pre><code>imports_impact(&lcub; filePath: "lib/users/queries.ts" &rcub;)
+
+→ 47 dependents, including:
+  - 11 via barrel: lib/users/index.ts
+  - 3 via generated SDK: packages/sdk/users.ts
+  - 33 direct named imports
+
+# 1 turn, includes everything grep would miss</code></pre>
+
+<h3>"Where does this database column appear in app code?"</h3>
+
+<p><strong>With grep:</strong></p>
+<pre><code>$ rg -n "billing_status" .
+
+# string matches in code, comments, generated types,
+# tests, and committed SQL — 80+ hits, mostly noise</code></pre>
+
+<p><strong>With <code>schema_usage</code>:</strong></p>
+<pre><code>schema_usage(&lcub; schema: "public", object: "organizations.billing_status" &rcub;)
+
+→ &lcub;
+  reads:  [".from('organizations').select('...billing_status')", 4 sites],
+  writes: [".update(&lcub; billing_status: 'active' &rcub;)", 2 sites],
+  rpc_refs: ["set_billing_active() function"],
+&rcub;
+
+# 1 turn, distinguishes reads from writes, finds RPC references</code></pre>
+
+<h3>"Find every place this AST pattern appears"</h3>
+
+<p><strong>With grep:</strong> can't really do this. ast-grep can.</p>
+
+<p><strong>With <code>ast_find_pattern</code>:</strong></p>
+<pre><code>ast_find_pattern(&lcub;
+  pattern: "supabase.from($TABLE).delete()",
+  languages: ["ts", "tsx"]
+&rcub;)
+
+→ 6 matches, with file paths, line ranges, and ackable fingerprints
+
+# wraps ast-grep with the typed graph layer on top</code></pre>
+
+<h3>"What's relevant to this task?"</h3>
+
+<p>This one grep can't answer at all. The shape of the question is
+"give me ranked context for this work."</p>
+
+<p><strong>With <code>context_packet</code>:</strong></p>
+<pre><code>context_packet(&lcub; request: "debug failing manager role check" &rcub;)
+
+→ &lcub;
+  primaryContext: [/* top 3 files */],
+  activeFindings: [/* prior reviews */],
+  risks: ["touches RLS-sensitive admin_audit_log"],
+  recommendedHarnessPattern: "read primary &rarr; check finding &rarr; edit"
+&rcub;
+
+# 1 turn, ~600 tokens, agent goes straight to relevant code</code></pre>
+
+<h2>Why typed tools win programmatically</h2>
+
+<p>The throughline across all five examples isn't "grep is bad." It's
+that the agent is doing four kinds of work, and grep happens to be
+mediocre at three of them:</p>
+
+<ul>
+  <li><strong>"Find this string"</strong> — grep wins. Use it.</li>
+  <li><strong>"Find this code structure"</strong> — ast-grep wins.</li>
+  <li><strong>"Find what depends on this"</strong> — typed import graph wins.</li>
+  <li><strong>"Find what's relevant to this task"</strong> — typed
+  context engine wins.</li>
+</ul>
+
+<p>For a human, the cost of using the wrong tool is mild — you just
+look at the output and ignore the noise. For an agent, every wrong
+tool means context-window pressure, more turns, and more frontier-model
+tokens. The cost compounds.</p>
+
+<p>That's why programmatic context tools beat grep specifically for AI
+agents:</p>
+
+<ol>
+  <li><strong>Typed results.</strong> The agent doesn't burn tokens
+  guessing what each result means. The schema is the answer.</li>
+  <li><strong>Bounded output.</strong> A typed tool returns a known
+  shape. grep can return 80,000 lines if the codebase is wrong-sized.</li>
+  <li><strong>Composable.</strong> One tool's output is another tool's
+  input. <code>route_trace</code> output flows directly into
+  <code>db_rls</code> without parsing.</li>
+  <li><strong>Cacheable.</strong> A grep run can't be cached
+  meaningfully. A typed graph query against a fresh index can.</li>
+</ol>
+
+<h2>When you should still grep</h2>
+
+<p>Don't replace grep. There are real cases where it's the right tool:</p>
+
+<ul>
+  <li><strong>Exact text after edits.</strong> The index might be
+  stale; grep reads disk. Use <code>live_text_search</code> for the
+  same job from inside an agent — it's just ripgrep with a typed
+  result envelope.</li>
+  <li><strong>Searching unindexed files.</strong> Generated code,
+  vendored binaries, log files — anything outside the AST/symbol
+  index. grep doesn't care.</li>
+  <li><strong>Finding hard-coded strings.</strong> Magic numbers,
+  config keys, error codes that aren't symbols. grep is the right
+  shape for these.</li>
+  <li><strong>One-off ad-hoc questions.</strong> If you're at the
+  terminal, your hand reaches for <code>rg</code> automatically and
+  it'll be correct 90% of the time.</li>
+</ul>
+
+<p>The rule: humans grep, agents query. The same person can do both at
+different times.</p>
+
+<h2>What this looks like in practice</h2>
+
+<p>You don't have to migrate your whole workflow. The simplest move:</p>
+
+<ol>
+  <li>Wire an MCP server that exposes typed search tools (agentmako or
+  similar).</li>
+  <li>Add a one-line rule to your <code>CLAUDE.md</code> /
+  <code>AGENTS.md</code>: <em>"Before grepping, call
+  <code>context_packet</code> or <code>cross_search</code>. Use grep
+  only for exact strings or unindexed files."</em></li>
+  <li>Watch the next session's transcript. The agent's opening moves
+  shift from <code>rg ...</code> to <code>context_packet</code>. Token
+  count per turn drops by ~70%.</li>
+</ol>
+
+<p>It's a one-line CLAUDE.md change. The cost of trying it is essentially
+zero. If it doesn't help on your codebase, the rule is one line to
+remove.</p>
+
+<h2>The takeaway</h2>
+
+<p>grep, ripgrep, and ast-grep are excellent tools. They're not the
+right primitive for an AI agent navigating a real codebase. Typed graph
+queries — file dependency graphs, route maps, schema-aware lookups,
+ranked context packets — produce smaller, structured, cacheable
+answers that compose into multi-step agent workflows without burning
+your token budget.</p>
+
+<p>The shift isn't from grep-the-tool to no-grep. It's from
+grep-as-the-default-action to grep-as-the-fallback. Your agent should
+reach for typed tools first, and grep when the typed tools say "this
+isn't in the index."</p>
+
+<p>That's exactly what <a href="/">agentmako</a> ships. An MCP server
+that gives Claude Code, Cursor, Codex, and Cline a typed search
+surface — <code>context_packet</code>, <code>cross_search</code>,
+<code>imports_impact</code>, <code>route_trace</code>,
+<code>schema_usage</code>, <code>auth_path</code> — alongside a
+<code>live_text_search</code> for when grep is still the right answer.
+Local-first, Apache-2.0, no telemetry. Try it for one session and read
+your own transcript to see the shift.</p>
+
+</BlogLayout>

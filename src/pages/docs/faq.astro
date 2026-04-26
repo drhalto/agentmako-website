@@ -1,0 +1,377 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="MCP server FAQ — common questions about agentmako · agentmako"
+  description="30+ answered questions about MCP servers, codebase context for AI coding agents, agentmako setup with Claude Code / Cursor / Codex / Cline, and troubleshooting."
+  canonicalPath="/docs/faq.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako FAQ — MCP, codebase context, and AI coding agents."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "FAQ", "href": "/docs/faq.html"}]}
+>
+  <Fragment slot="head">
+    <script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "What is an MCP server?", "acceptedAnswer": {"@type": "Answer", "text": "MCP (Model Context Protocol) is an open standard introduced by Anthropic in late 2024 that lets AI coding agents connect to external tools and data sources via a standardized stdio interface. An MCP server exposes tools (file search, database queries, schema introspection) that any compliant client (Claude Code, Codex CLI, Cursor, Cline, Continue.dev) can call. agentmako is an MCP server specifically designed for code intelligence: it indexes your repo, tracks diagnostics, snapshots Postgres or Supabase schema when configured, and returns deterministic context packets."}}, {"@type": "Question", "name": "What is the Model Context Protocol?", "acceptedAnswer": {"@type": "Answer", "text": "Model Context Protocol (MCP) is a stdio-based protocol from Anthropic, released November 2024, that standardizes how AI coding agents call external tools. It uses JSON-RPC over stdin/stdout, so any process that speaks MCP can serve any agent that speaks MCP. The full spec is at https://spec.modelcontextprotocol.io/."}}, {"@type": "Question", "name": "How do I add an MCP server to Claude Code?", "acceptedAnswer": {"@type": "Answer", "text": "Claude Code reads MCP servers from ~/.claude.json or a project-scoped .mcp.json. Easiest is the CLI: claude mcp add mako-ai agentmako mcp. Or paste a mcpServers entry manually. Restart Claude Code, then run /mcp inside the session to confirm. Tools surface as mcp__mako-ai__<toolName>."}}, {"@type": "Question", "name": "How do I add an MCP server to Cursor?", "acceptedAnswer": {"@type": "Answer", "text": "Cursor reads MCP servers from ~/.cursor/mcp.json (global) or .cursor/mcp.json (per-project). Add an mcpServers block pointing at agentmako with args [\"mcp\"]. Open Cursor Settings \u2192 Features \u2192 MCP to verify the server shows green. Composer (\u2318+I) and Agent mode both see the tools after a restart."}}, {"@type": "Question", "name": "How do I add an MCP server to Codex CLI?", "acceptedAnswer": {"@type": "Answer", "text": "Codex CLI uses TOML, not JSON. Add a [mcp_servers.mako-ai] block to ~/.codex/config.toml with command = \"agentmako\" and args = [\"mcp\"]. Restart any running codex sessions. Works with both interactive codex and one-shot codex exec."}}, {"@type": "Question", "name": "How do I add an MCP server to Cline (VS Code)?", "acceptedAnswer": {"@type": "Answer", "text": "Cline is a VS Code extension. Open the Cline panel, click MCP Servers \u2192 Configure MCP Servers, paste a mcpServers entry pointing at agentmako with args [\"mcp\"], and optionally autoApprove the safe read-only tools. Save \u2014 Cline reloads MCP servers automatically."}}, {"@type": "Question", "name": "Can I run an MCP server locally?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. Most MCP servers, including agentmako, run entirely on your machine via stdio. There is no hosted service, no remote API, no auth tokens. Your code never leaves your laptop. agentmako stores everything in local SQLite under each project's .mako-ai/ directory and is Apache-2.0 licensed."}}, {"@type": "Question", "name": "Is MCP free?", "acceptedAnswer": {"@type": "Answer", "text": "The Model Context Protocol is open and free \u2014 Anthropic published the spec under MIT. You are free to write or use any MCP server, and most existing ones (including agentmako) are free and open source. You may still pay for the AI agent itself (Claude Code uses your Anthropic API quota, Cursor has paid plans), but MCP servers are not a separate billing line."}}, {"@type": "Question", "name": "Why does my AI coding agent rediscover the codebase every prompt?", "acceptedAnswer": {"@type": "Answer", "text": "Without a persistent context layer, agents have no memory of your project across turns. Each prompt they start fresh \u2014 running grep, walking directories, re-reading files they read 30 seconds ago. This burns tokens and loses signal. The fix is a context engine like agentmako that indexes the repo once and serves typed context packets on demand. Subsequent turns build on durable findings stored across sessions."}}, {"@type": "Question", "name": "How do I give my AI coding agent project context?", "acceptedAnswer": {"@type": "Answer", "text": "Three layers, in order of effectiveness: (1) Project instructions file (CLAUDE.md, AGENTS.md, .cursorrules) read by the agent on every turn; (2) MCP server with codebase intelligence (agentmako) that indexes your repo and returns typed context; (3) Per-prompt context with explicit @file mentions. Combining all three keeps token spend low while ensuring the agent has access to the right context."}}, {"@type": "Question", "name": "How do I make Claude Code aware of my Postgres schema?", "acceptedAnswer": {"@type": "Answer", "text": "Out of the box, Claude Code knows nothing about your database. Run agentmako connect . interactively (or --db-env DATABASE_URL --yes for CI) to wire Postgres or Supabase. The MCP tools db_table_schema, db_rls, db_rpc, schema_usage, and tenant_leak_audit become available. Read-only by default; secrets live in your OS keychain."}}, {"@type": "Question", "name": "What is the best way to give an AI coding agent codebase context?", "acceptedAnswer": {"@type": "Answer", "text": "The most effective stack as of 2026: (1) a CLAUDE.md / AGENTS.md at project root with project rules; (2) an MCP server like agentmako that indexes the codebase and returns ranked context on demand; (3) per-prompt @file mentions only when needed. The CLAUDE.md tells the agent how to think; the MCP server lets the agent look things up without rediscovering everything from scratch."}}, {"@type": "Question", "name": "How do I stop my AI agent from hallucinating routes, files, or functions?", "acceptedAnswer": {"@type": "Answer", "text": "Hallucination usually comes from the agent guessing instead of looking. Solutions: (1) index your codebase with a typed graph the agent can query; (2) use freshness-aware tools that label evidence as live, fresh_indexed, stale, contradicted, or unknown; (3) require citations in your CLAUDE.md so the agent includes file:line references for every claim. If it cannot cite, it is hallucinating."}}, {"@type": "Question", "name": "How do I make Cursor or Claude Code understand my whole codebase?", "acceptedAnswer": {"@type": "Answer", "text": "Index, do not dump. Use a tool like agentmako that builds a typed local index of files, symbols, routes, imports, and schema. The agent queries the index per question. Tools like context_packet return ranked candidates rather than all 500 files. Track changes with working_tree_overlay (light) or project_index_refresh (full)."}}, {"@type": "Question", "name": "What is agentmako?", "acceptedAnswer": {"@type": "Answer", "text": "agentmako is an open-source (Apache-2.0) MCP server that gives AI coding agents typed, deterministic context about your codebase. Instead of letting Claude Code, Codex, Cursor, or Cline grep blind, agentmako indexes your repo into local SQLite and returns ranked context packets \u2014 the right files, routes, schema info, and prior findings \u2014 for any coding task. Local-first, no hosted service. Install with npm install -g agentmako."}}, {"@type": "Question", "name": "Is agentmako free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. agentmako is open source under Apache-2.0. There is no paid tier. The core MCP and indexing workflow runs entirely on your machine \u2014 no hosted service, no telemetry, no analytics, no usage pings. The codebase is at https://github.com/drhalto/agentmako and the npm package is published as agentmako."}}, {"@type": "Question", "name": "How does agentmako work?", "acceptedAnswer": {"@type": "Answer", "text": "Three-layer architecture. (1) Indexer walks your repo, parses TS/JS/TSX/JSX with AST, extracts symbols/routes/imports, snapshots Postgres schema if connected, stores everything in local SQLite under .mako-ai/. (2) Reef Engine is a durable fact and finding layer that tracks freshness, accumulates findings across sessions, and labels evidence as live, fresh, stale, or contradicted. (3) MCP server (agentmako mcp) exposes 85 typed tools that any MCP-compliant agent harness can call."}}, {"@type": "Question", "name": "Does agentmako work offline?", "acceptedAnswer": {"@type": "Answer", "text": "Mostly yes. The indexer and MCP server run locally \u2014 no network needed for code intelligence. Exceptions: database tools (db_table_schema, db_rls) need network to your Postgres or Supabase, and npm install -g agentmako itself needs network the first time. After install, agentmako connect, agentmako mcp, and all read-only tools work offline."}}, {"@type": "Question", "name": "What languages does agentmako support?", "acceptedAnswer": {"@type": "Answer", "text": "Strong, AST-aware support for TypeScript, JavaScript, TSX, and JSX \u2014 symbol extraction, structural search, import-graph traversal. Other languages (Python, Go, Rust) work via text-based search (cross_search, live_text_search) but do not yet have first-class graph traversal. PostgreSQL and Supabase are first-class for schema awareness."}}, {"@type": "Question", "name": "What is the difference between agentmako and a regular RAG or vector search?", "acceptedAnswer": {"@type": "Answer", "text": "RAG retrieves text chunks via fuzzy semantic similarity. agentmako stores a typed graph \u2014 files, symbols, routes, imports, schema, RLS, findings \u2014 and does deterministic lookups (this route \u2192 this handler \u2192 this file). Lower token cost, higher accuracy when fresh, and freshness is labeled per piece of evidence instead of silently served."}}, {"@type": "Question", "name": "Does agentmako support Supabase?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, first-class. agentmako reads your Postgres connection (Supabase or otherwise), snapshots the schema, and exposes db_table_schema, db_rls, db_rpc, tenant_leak_audit, and schema_usage. Connect interactively with agentmako connect . or via --db-env DATABASE_URL --yes in CI. Secrets live in your OS keychain by default."}}, {"@type": "Question", "name": "Does agentmako send my code anywhere?", "acceptedAnswer": {"@type": "Answer", "text": "No. agentmako does not collect telemetry of any kind \u2014 no analytics, no usage pings, no error reporting endpoint. Source code, schema snapshots, tool runs, and Reef Engine facts are stored in local SQLite under each project's .mako-ai/ directory. Outbound network requests only happen when you explicitly configure a model provider for the optional harness, or when you connect a Postgres or Supabase database."}}, {"@type": "Question", "name": "How do I uninstall agentmako?", "acceptedAnswer": {"@type": "Answer", "text": "Run npm uninstall -g agentmako to remove the binary. Then delete each project's .mako-ai/ directory and the global ~/.mako-ai/ to remove indexed data. To detach a single project without uninstalling, use agentmako project detach from the project root."}}, {"@type": "Question", "name": "Why does my MCP server fail to start in Claude Code?", "acceptedAnswer": {"@type": "Answer", "text": "Most common causes: (1) agentmako not on PATH \u2014 run which agentmako (or where agentmako on Windows). If empty, npm install -g agentmako again, fully quit Claude Code, reopen. (2) No project attached \u2014 agentmako mcp needs a project. Run agentmako connect . from the project directory first. (3) On macOS, the binary may need an explicit open the first time. Diagnose by running the server manually: agentmako mcp."}}, {"@type": "Question", "name": "Why does Cursor not see my MCP tools?", "acceptedAnswer": {"@type": "Answer", "text": "In Cursor Settings \u2192 Features \u2192 MCP, look for the server. Green means connected; red means failed (click for error); missing means the config file is not being read. Check the path: .cursor/mcp.json (per-project) or ~/.cursor/mcp.json (global). If green but tools are not called, add an explicit Project Rule at .cursor/rules/mako.mdc instructing Cursor to call mako-ai tools before grep."}}, {"@type": "Question", "name": "My agent isn't calling Mako tools \u2014 what do I do?", "acceptedAnswer": {"@type": "Answer", "text": "Three layers. (1) Make sure tools are registered: run /mcp in Claude Code or check Cursor MCP settings. (2) Tell the agent to use them: drop agentmako's CLAUDE.md template into your project root. Without explicit instructions, agents default to grep. (3) Be explicit in prompts for the first few turns: Use the mako-ai context_packet tool first. Once the agent sees the tool's value, it tends to keep reaching for it."}}, {"@type": "Question", "name": "Why is agentmako returning stale results?", "acceptedAnswer": {"@type": "Answer", "text": "The Reef Engine labels every piece of evidence with a freshness tag: live, fresh_indexed, stale, historical, contradicted, or unknown. If you are getting stale answers: (1) check project_index_status; (2) use live_text_search instead of cross_search if you need post-edit accuracy; (3) run project_index_refresh with mode if_stale to refresh; (4) run mode force only if the index seems wrong, not just stale."}}, {"@type": "Question", "name": "I am getting a no project attached error.", "acceptedAnswer": {"@type": "Answer", "text": "You haven't run agentmako connect . from the project directory. Each project is registered separately so Mako knows which SQLite database to read. Run cd /path/to/your/project, then agentmako connect . --no-db, then agentmako doctor to confirm attachment."}}, {"@type": "Question", "name": "agentmako vs raw grep \u2014 what's the difference?", "acceptedAnswer": {"@type": "Answer", "text": "Grep is fast for finding an exact string in a small repo and knows nothing about types, imports, routes, or schema. agentmako uses an indexed typed graph \u2014 it knows imports (imports_impact), routes (route_trace), database schema (db_table_schema), and returns ranked context (context_packet). Tokens per agent turn drop from 5-15k of grep output to roughly 600 of structured context."}}, {"@type": "Question", "name": "agentmako vs Cursor's built-in indexing?", "acceptedAnswer": {"@type": "Answer", "text": "Cursor has a proprietary embedding-based index for Composer. agentmako is complementary, not competing. Cursor's index is semantic, hosted, and optimized for Cursor's UI \u2014 you cannot inspect it or reuse it elsewhere. agentmako is a typed graph, local, MCP-exposed \u2014 the same context is available in Cursor, Claude Code, Codex, and Cline simultaneously, and you own the data."}}, {"@type": "Question", "name": "Why MCP and not just direct API calls?", "acceptedAnswer": {"@type": "Answer", "text": "Three reasons. (1) One server, every client \u2014 build agentmako once, it works in Claude Code, Codex, Cursor, Cline, Continue.dev, and any future MCP client. (2) The agent picks the tool \u2014 with direct APIs you would write integration glue per agent; with MCP, the agent decides when to call which tool based on the schemas you expose. (3) stdio is simple \u2014 no auth, no HTTP, no rate limits."}}]}</script>
+  </Fragment>
+<header class="doc-page-header">
+  <span class="eyebrow">FAQ</span>
+    <h1 style="margin-top:1rem;">agentmako <em>FAQ</em></h1>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server for AI
+      coding agents. Below are common questions about MCP servers,
+      codebase context, agentmako specifics, troubleshooting, and how
+      Mako compares to alternatives. Jump to a section:
+      <a href="#mcp-basics">MCP fundamentals</a> ·
+      <a href="#codebase-context">Codebase context</a> ·
+      <a href="#agentmako">agentmako specifics</a> ·
+      <a href="#troubleshooting">Troubleshooting</a> ·
+      <a href="#comparison">Comparison</a>.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <section id="mcp-basics">
+        <h2 data-step="01">MCP fundamentals</h2>
+
+        <details id="what-is-mcp" class="faq-item">
+          <summary><strong>What is an MCP server?</strong></summary>
+          <p>MCP (Model Context Protocol) is an open standard introduced by Anthropic in late 2024 that lets AI coding agents connect to external tools and data sources via a standardized stdio interface. An MCP <strong>server</strong> exposes tools (file search, database queries, schema introspection) that any compliant <strong>client</strong> (Claude Code, Codex CLI, Cursor, Cline, Continue.dev) can call.</p>
+          <p>Before MCP, every coding agent had to invent its own context-gathering mechanism. Now a single tool — like <code>agentmako</code> — can serve every agent. You install one server, and all your AI tools get the same enriched view of your codebase.</p>
+          <p><a href="./concepts/mcp.html">Full MCP explainer →</a></p>
+        </details>
+
+        <details id="what-is-mcp-protocol" class="faq-item">
+          <summary><strong>What is the Model Context Protocol?</strong></summary>
+          <p>Model Context Protocol (MCP) is a stdio-based protocol from Anthropic, released November 2024, that standardizes how AI coding agents call external tools. It uses JSON-RPC over stdin/stdout, so any process that speaks MCP can serve any agent that speaks MCP. The full spec is at <a href="https://spec.modelcontextprotocol.io/" rel="noopener">spec.modelcontextprotocol.io</a>.</p>
+          <p>Practically: MCP turns "AI agent + custom tooling" into a plug-and-play ecosystem. You install <code>agentmako</code> once, and Claude Code, Codex, Cursor, and Cline all gain access to its code-intelligence tools without you wiring each one separately.</p>
+        </details>
+
+        <details id="how-do-i-add-mcp-to-claude-code" class="faq-item">
+          <summary><strong>How do I add an MCP server to Claude Code?</strong></summary>
+          <p>Claude Code reads MCP servers from <code>~/.claude.json</code> or a project-scoped <code>.mcp.json</code>. Two ways:</p>
+          <p><strong>CLI (fastest):</strong></p>
+          <pre><code>claude mcp add mako-ai agentmako mcp</code></pre>
+          <p><strong>Manual JSON:</strong></p>
+          <pre><code>&lcub;
+  "mcpServers": &lcub;
+    "mako-ai": &lcub;
+      "command": "agentmako",
+      "args": ["mcp"]
+    &rcub;
+  &rcub;
+&rcub;</code></pre>
+          <p>Restart Claude Code, then run <code>/mcp</code> inside the session to confirm. Tools surface as <code>mcp__mako-ai__&lt;toolName&gt;</code>.</p>
+          <p><a href="./claude-code.html">Full Claude Code setup →</a></p>
+        </details>
+
+        <details id="how-do-i-add-mcp-to-cursor" class="faq-item">
+          <summary><strong>How do I add an MCP server to Cursor?</strong></summary>
+          <p>Cursor reads MCP servers from <code>~/.cursor/mcp.json</code> (global) or <code>.cursor/mcp.json</code> (per-project). Add:</p>
+          <pre><code>&lcub;
+  "mcpServers": &lcub;
+    "mako-ai": &lcub;
+      "command": "agentmako",
+      "args": ["mcp"]
+    &rcub;
+  &rcub;
+&rcub;</code></pre>
+          <p>Open <strong>Cursor Settings → Features → MCP</strong> to verify the server shows green. Composer (⌘+I) and Agent mode both see the tools after a restart.</p>
+          <p>For best results, add a Project Rule at <code>.cursor/rules/mako.mdc</code> that instructs Cursor to call <code>mako-ai</code> tools before grep. Full setup: <a href="./cursor.html">Cursor MCP setup with agentmako</a>.</p>
+        </details>
+
+        <details id="how-do-i-add-mcp-to-codex" class="faq-item">
+          <summary><strong>How do I add an MCP server to Codex CLI?</strong></summary>
+          <p>Codex CLI uses TOML, not JSON. Add to <code>~/.codex/config.toml</code>:</p>
+          <pre><code>[mcp_servers.mako-ai]
+command = "agentmako"
+args = ["mcp"]</code></pre>
+          <p>Restart any running <code>codex</code> sessions. Verify by asking Codex to list its tools — <code>mako-ai__*</code> should appear. Works with both <code>codex</code> (interactive TUI) and <code>codex exec</code> (one-shot).</p>
+          <p><a href="./codex.html">Full Codex CLI setup →</a></p>
+        </details>
+
+        <details id="how-do-i-add-mcp-to-cline" class="faq-item">
+          <summary><strong>How do I add an MCP server to Cline (VS Code)?</strong></summary>
+          <p>Cline is a VS Code extension. Open the Cline panel, click the <strong>MCP Servers</strong> icon, choose <strong>Configure MCP Servers</strong>, paste:</p>
+          <pre><code>&lcub;
+  "mcpServers": &lcub;
+    "mako-ai": &lcub;
+      "command": "agentmako",
+      "args": ["mcp"],
+      "disabled": false,
+      "autoApprove": ["context_packet", "reef_scout", "repo_map", "cross_search"]
+    &rcub;
+  &rcub;
+&rcub;</code></pre>
+          <p>Save — Cline reloads MCP servers automatically. The <code>autoApprove</code> list lets safe read-only tools run without permission prompts.</p>
+          <p><a href="./cline.html">Full Cline setup →</a></p>
+        </details>
+
+        <details id="can-i-run-mcp-locally" class="faq-item">
+          <summary><strong>Can I run an MCP server locally?</strong></summary>
+          <p>Yes — most MCP servers, including agentmako, run entirely on your machine via stdio. There's no hosted service, no remote API, no auth tokens. Your code never leaves your laptop.</p>
+          <p>agentmako specifically stores everything in local SQLite under each project's <code>.mako-ai/</code> directory. The MCP transport is stdin/stdout between your AI coding agent (e.g., Claude Code) and the local <code>agentmako mcp</code> process. Apache-2.0 licensed.</p>
+        </details>
+
+        <details id="is-mcp-free" class="faq-item">
+          <summary><strong>Is MCP free?</strong></summary>
+          <p>The Model Context Protocol is open and free — Anthropic published the spec under MIT. You're free to write or use any MCP server, and most existing ones (including agentmako) are free + open source.</p>
+          <p>You may still pay for the AI agent itself (Claude Code uses your Anthropic API quota; Cursor has paid plans) but MCP servers themselves are not a separate billing line.</p>
+        </details>
+      </section>
+
+      <section id="codebase-context">
+        <h2 data-step="02">Codebase context for AI agents</h2>
+
+        <details id="why-rediscover" class="faq-item">
+          <summary><strong>Why does my AI coding agent rediscover the codebase every prompt?</strong></summary>
+          <p>Without a persistent context layer, agents have no memory of your project across turns. Each prompt, they start fresh — running grep, walking directories, re-reading files they read 30 seconds ago. This burns tokens (high cost) and loses signal (the agent forgets what it learned).</p>
+          <p>The fix is a context engine like <code>agentmako</code> that indexes your repo once and serves typed context packets on demand. The agent calls one tool (<code>context_packet</code>) and gets back ranked files, active findings, schema-aware hints, and a "read next" pointer. Subsequent turns build on durable findings stored across sessions.</p>
+          <p><a href="./concepts/context-packets.html">What is a context packet? →</a></p>
+        </details>
+
+        <details id="give-context" class="faq-item">
+          <summary><strong>How do I give my AI coding agent project context?</strong></summary>
+          <p>Three layers, in order of effectiveness:</p>
+          <ol>
+            <li><strong>Project instructions file</strong> — <code>CLAUDE.md</code>, <code>AGENTS.md</code>, <code>.cursorrules</code>. Read by the agent on every turn. Use it for "always remember this about my project" rules.</li>
+            <li><strong>MCP server with codebase intelligence</strong> — <code>agentmako</code> indexes your repo, tracks symbols/routes/schema, returns deterministic context. The agent calls <code>context_packet</code> instead of grepping.</li>
+            <li><strong>Per-prompt context</strong> — explicit <code>@file</code> mentions or pasted code. Cheapest but only as good as your guesses about what's relevant.</li>
+          </ol>
+          <p>Combining all three: start every project with a <code>CLAUDE.md</code> template, install agentmako once, and stop pasting code into prompts. See the <a href="/CLAUDE.md">agentmako CLAUDE.md template</a>.</p>
+        </details>
+
+        <details id="postgres-aware" class="faq-item">
+          <summary><strong>How do I make Claude Code aware of my Postgres schema?</strong></summary>
+          <p>Out of the box, Claude Code knows nothing about your database. Two options:</p>
+          <ol>
+            <li><strong>Paste schema in CLAUDE.md</strong> — works for small projects, gets stale fast.</li>
+            <li><strong>MCP server with live DB inspection</strong> — <code>agentmako</code> connects to Postgres / Supabase and exposes <code>db_table_schema</code>, <code>db_rls</code>, <code>db_rpc</code> tools. Claude Code calls them directly when it needs to know about a table or RLS policy. Always current.</li>
+          </ol>
+          <p>Setup: <code>agentmako connect .</code> (interactive — wires Postgres or Supabase) or <code>agentmako connect . --db-env DATABASE_URL --yes</code> for CI. Full guide: <a href="./recipes/database-aware-edits.html">database-aware edits with agentmako</a>.</p>
+        </details>
+
+        <details id="best-context" class="faq-item">
+          <summary><strong>What's the best way to give an AI coding agent codebase context?</strong></summary>
+          <p>The most effective stack as of 2026:</p>
+          <ol>
+            <li>A <code>CLAUDE.md</code> / <code>AGENTS.md</code> at project root with project rules (auth model, route patterns, schema constraints).</li>
+            <li>An MCP server like <code>agentmako</code> that indexes the codebase and returns ranked context on demand.</li>
+            <li>Per-prompt <code>@file</code> mentions only when needed.</li>
+          </ol>
+          <p>This keeps the agent's per-turn token spend low while ensuring it has access to the right context. The CLAUDE.md tells the agent <strong>how to think</strong>; the MCP server lets the agent <strong>look things up</strong> without rediscovering everything from scratch.</p>
+        </details>
+
+        <details id="hallucinate" class="faq-item">
+          <summary><strong>How do I stop my AI agent from hallucinating routes / files / functions?</strong></summary>
+          <p>Hallucination usually comes from the agent guessing instead of looking. Solutions:</p>
+          <ol>
+            <li><strong>Index your codebase</strong> so the agent has a typed graph to query. agentmako's <code>repo_map</code>, <code>cross_search</code>, and <code>route_trace</code> give the agent ground truth instead of letting it pattern-match from memory.</li>
+            <li><strong>Use freshness-aware tools</strong> — agentmako labels evidence as <code>live</code>, <code>fresh_indexed</code>, <code>stale</code>, <code>contradicted</code>, or <code>unknown</code>. The agent won't return a stale answer as a confident one.</li>
+            <li><strong>Require citations</strong> in your CLAUDE.md — instruct the agent to include file:line references for every claim. If it can't cite, it's hallucinating.</li>
+          </ol>
+        </details>
+
+        <details id="understand-whole-codebase" class="faq-item">
+          <summary><strong>How do I make Cursor / Claude Code understand my whole codebase?</strong></summary>
+          <p>There's no magic. You need to give them a query interface to your codebase, not a "complete dump" — codebases are too big for context windows. The right architecture:</p>
+          <ul>
+            <li><strong>Index, don't dump.</strong> Use a tool like <code>agentmako</code> that builds a typed local index of files, symbols, routes, imports, schema. The agent queries the index per-question.</li>
+            <li><strong>Rank, don't list.</strong> Tools like <code>context_packet</code> return <em>ranked</em> candidates — top 5 files, not all 500. Token-efficient.</li>
+            <li><strong>Track changes.</strong> When you edit a file, the index needs to know. agentmako handles this via <code>working_tree_overlay</code> (light) or <code>project_index_refresh</code> (full re-index).</li>
+          </ul>
+          <p>This is the ground truth: AI agents understand a codebase the same way a new engineer does — by querying targeted parts of it, not by reading everything.</p>
+        </details>
+      </section>
+
+      <section id="agentmako">
+        <h2 data-step="03">agentmako specifics</h2>
+
+        <details id="what-is-agentmako" class="faq-item">
+          <summary><strong>What is agentmako?</strong></summary>
+          <p>agentmako is an open-source (Apache-2.0) MCP server that gives AI coding agents typed, deterministic context about your codebase. Instead of letting Claude Code, Codex, Cursor, or Cline grep blind, agentmako indexes your repo into local SQLite and returns ranked "context packets" — the right files, routes, schema info, and prior findings — for any coding task.</p>
+          <p>Local-first, no hosted service. Works with any MCP-compatible agent. Install with <code>npm install -g agentmako</code>.</p>
+        </details>
+
+        <details id="is-it-free" class="faq-item">
+          <summary><strong>Is agentmako free?</strong></summary>
+          <p>Yes. agentmako is open source under Apache-2.0. There's no paid tier and no hosted service. The codebase is at <a href="https://github.com/drhalto/agentmako" rel="noopener">github.com/drhalto/agentmako</a> and the npm package is published as <code>agentmako</code>.</p>
+        </details>
+
+        <details id="how-it-works" class="faq-item">
+          <summary><strong>How does agentmako work?</strong></summary>
+          <p>Three-layer architecture:</p>
+          <ol>
+            <li><strong>Indexer</strong> — walks your repo, parses TS/JS/TSX/JSX with AST, extracts symbols/routes/imports, snapshots Postgres schema (if connected). Stores everything in local SQLite under each project's <code>.mako-ai/</code>.</li>
+            <li><strong>Reef Engine</strong> — durable fact + finding layer. Tracks freshness, accumulates findings across sessions, labels evidence as live / fresh / stale / contradicted.</li>
+            <li><strong>MCP server</strong> — <code>agentmako mcp</code> exposes 85 typed tools (<code>context_packet</code>, <code>cross_search</code>, <code>route_trace</code>, <code>db_rls</code>, etc.) that any MCP-compliant agent harness can call.</li>
+          </ol>
+          <p>When your AI agent asks "where is the auth callback?", it calls <code>context_packet</code> and gets back: target file + line, related routes, active findings, schema touch points, and a recommended next tool. Deterministic. Roughly 600 tokens vs. 12k for blind grep.</p>
+        </details>
+
+        <details id="offline" class="faq-item">
+          <summary><strong>Does agentmako work offline?</strong></summary>
+          <p>Mostly yes. The indexer and MCP server run locally — no network needed for code intelligence. The exceptions:</p>
+          <ul>
+            <li>Database tools (<code>db_table_schema</code>, <code>db_rls</code>) need network to your Postgres / Supabase, of course.</li>
+            <li><code>npm install -g agentmako</code> itself needs network the first time.</li>
+          </ul>
+          <p>After install, <code>agentmako connect</code>, <code>agentmako mcp</code>, and all read-only tools work offline.</p>
+        </details>
+
+        <details id="languages" class="faq-item">
+          <summary><strong>What languages does agentmako support?</strong></summary>
+          <p>Strong support: TypeScript, JavaScript, TSX, JSX. AST tooling, structural search, and import-graph traversal all work natively.</p>
+          <p>Partial support: Python, Go, Rust (text-based search via <code>cross_search</code> and <code>live_text_search</code> work; AST and import-graph are TS/JS-first).</p>
+          <p>For schema awareness: PostgreSQL (including Supabase). Other databases are not currently first-class.</p>
+        </details>
+
+        <details id="vs-rag" class="faq-item">
+          <summary><strong>What's the difference between agentmako and a regular RAG / vector search?</strong></summary>
+          <p>RAG retrieves text chunks via fuzzy semantic similarity. agentmako stores a <strong>typed graph</strong> — files, symbols, routes, imports, schema, RLS, findings — and does deterministic lookups (this route → this handler → this file). Differences:</p>
+          <ul>
+            <li><strong>Storage:</strong> RAG uses a hosted vector DB; agentmako uses local SQLite.</li>
+            <li><strong>Index type:</strong> RAG is semantic embeddings; agentmako is a typed graph (symbols, routes, imports, schema).</li>
+            <li><strong>Lookup:</strong> RAG is fuzzy similarity; agentmako is deterministic (this route → this handler → this file).</li>
+            <li><strong>Freshness:</strong> RAG re-embeds everything; agentmako labels per-evidence freshness.</li>
+            <li><strong>Token cost:</strong> RAG returns text chunks (high); agentmako returns structured pointers (low).</li>
+          </ul>
+          <p>RAG is good when you have unstructured text. Code is highly structured — file paths, imports, type signatures — and a typed graph beats embeddings on accuracy and token cost.</p>
+        </details>
+
+        <details id="supabase" class="faq-item">
+          <summary><strong>Does agentmako support Supabase?</strong></summary>
+          <p>Yes, first-class. agentmako reads your Postgres connection (Supabase or otherwise), snapshots the schema, and exposes:</p>
+          <ul>
+            <li><code>db_table_schema</code> — columns, indexes, FKs, RLS, triggers</li>
+            <li><code>db_rls</code> — RLS state and policies</li>
+            <li><code>db_rpc</code> — function signatures and source</li>
+            <li><code>tenant_leak_audit</code> — multi-tenant RLS posture audit</li>
+          </ul>
+          <p>Connect interactively with <code>agentmako connect .</code> or via <code>--db-env DATABASE_URL --yes</code> in CI. Secrets live in your OS keychain by default.</p>
+        </details>
+
+        <details id="privacy" class="faq-item">
+          <summary><strong>Does agentmako send my code anywhere?</strong></summary>
+          <p>No. agentmako does not collect telemetry of any kind — no analytics, no usage pings, no error reporting endpoint. Source code, schema snapshots, tool runs, and Reef Engine facts are stored in local SQLite under each project's <code>.mako-ai/</code> directory.</p>
+          <p>Outbound network requests only happen when:</p>
+          <ol>
+            <li>You configure a model provider (Anthropic, OpenAI, Ollama, LMStudio, etc.) for the optional harness. The harness then talks to that provider on your behalf.</li>
+            <li>You explicitly use Supabase or Postgres tooling that connects to your own database.</li>
+          </ol>
+          <p>Database credentials live in your OS keychain via <code>@napi-rs/keyring</code>. Project config files store keychain references, not plaintext URLs. Full policy: <a href="https://github.com/drhalto/agentmako/blob/main/PRIVACY.md" rel="noopener">PRIVACY.md</a>.</p>
+        </details>
+
+        <details id="uninstall" class="faq-item">
+          <summary><strong>How do I uninstall agentmako?</strong></summary>
+          <p>Remove the binary:</p>
+          <pre><code>npm uninstall -g agentmako</code></pre>
+          <p>To remove indexed data, delete the project state directories:</p>
+          <pre><code>rm -rf ~/.mako-ai
+# from each project root:
+rm -rf .mako-ai</code></pre>
+          <p>Your projects themselves are untouched.</p>
+          <p>To detach a single project without uninstalling: <code>agentmako project detach</code> from the project root.</p>
+        </details>
+      </section>
+
+      <section id="troubleshooting">
+        <h2 data-step="04">Troubleshooting</h2>
+
+        <details id="claude-code-fail" class="faq-item">
+          <summary><strong>Why does my MCP server fail to start in Claude Code?</strong></summary>
+          <p>Most common causes:</p>
+          <ol>
+            <li><strong><code>agentmako</code> not on PATH</strong> — Claude Code launched before the install finished. Run <code>which agentmako</code> (or <code>where agentmako</code> on Windows). If empty: <code>npm install -g agentmako</code> again, fully quit Claude Code, reopen.</li>
+            <li><strong>No project attached</strong> — <code>agentmako mcp</code> needs a project. Run <code>agentmako connect .</code> from the project directory first.</li>
+            <li><strong>Permissions</strong> — on macOS, the binary may need explicit "open" the first time. Run <code>agentmako --version</code> from a terminal once.</li>
+          </ol>
+          <p>Diagnose by running the server manually: <code>agentmako mcp</code> — if it fails standalone, the same error will hit Claude Code.</p>
+        </details>
+
+        <details id="cursor-no-tools" class="faq-item">
+          <summary><strong>Why does Cursor not see my MCP tools?</strong></summary>
+          <p>In <strong>Cursor Settings → Features → MCP</strong>, look for the server. Status meanings:</p>
+          <ul>
+            <li><strong>Green</strong> — connected, tools available.</li>
+            <li><strong>Red</strong> — server failed to start (click for error).</li>
+            <li><strong>Missing</strong> — config file isn't being read. Check the path: <code>.cursor/mcp.json</code> (per-project) or <code>~/.cursor/mcp.json</code> (global).</li>
+          </ul>
+          <p>If green but tools aren't called: Cursor's auto-tool-selection is conservative. Add an explicit Project Rule at <code>.cursor/rules/mako.mdc</code> instructing Cursor to call <code>mako-ai</code> tools before grep.</p>
+        </details>
+
+        <details id="agent-not-calling" class="faq-item">
+          <summary><strong>My agent isn't calling Mako tools — what do I do?</strong></summary>
+          <p>Three layers:</p>
+          <ol>
+            <li><strong>Make sure tools are registered</strong> — run <code>/mcp</code> in Claude Code or check Cursor MCP settings. If tools aren't listed, the server isn't connected.</li>
+            <li><strong>Tell the agent to use them</strong> — add agentmako's <a href="/CLAUDE.md">CLAUDE.md template</a> to your project root. Without explicit instructions, agents default to grep.</li>
+            <li><strong>Be explicit in prompts</strong> — for the first few turns, prompt: "Use the mako-ai <code>context_packet</code> tool first." Once the agent sees the tool's value, it tends to keep reaching for it.</li>
+          </ol>
+        </details>
+
+        <details id="stale" class="faq-item">
+          <summary><strong>Why is agentmako returning stale results?</strong></summary>
+          <p>The Reef Engine labels every piece of evidence with a freshness tag: <code>live</code>, <code>fresh_indexed</code>, <code>stale</code>, <code>historical</code>, <code>contradicted</code>, or <code>unknown</code>. If you're getting stale answers:</p>
+          <ol>
+            <li>Check <code>project_index_status</code> — is the index dirty?</li>
+            <li>Use <code>live_text_search</code> instead of <code>cross_search</code> if you need post-edit accuracy.</li>
+            <li>Run <code>project_index_refresh</code> with <code>mode: "if_stale"</code> to refresh.</li>
+            <li>Run <code>project_index_refresh</code> with <code>mode: "force"</code> only if the index seems wrong, not just stale.</li>
+          </ol>
+          <p>Full freshness model: <a href="./concepts/freshness.html">How Mako tracks freshness</a>.</p>
+        </details>
+
+        <details id="no-project" class="faq-item">
+          <summary><strong>I'm getting "no project attached" errors</strong></summary>
+          <p>You haven't run <code>agentmako connect .</code> from the project directory. Each project is registered separately so Mako knows which SQLite database to read.</p>
+          <pre><code>cd /path/to/your/project
+agentmako connect . --no-db
+agentmako doctor</code></pre>
+          <p><code>agentmako doctor</code> confirms attachment.</p>
+        </details>
+      </section>
+
+      <section id="comparison">
+        <h2 data-step="05">Comparison &amp; context</h2>
+
+        <details id="vs-grep" class="faq-item">
+          <summary><strong>agentmako vs. raw grep — what's the difference?</strong></summary>
+          <p>Grep is fine for "find this exact string." agentmako is for "what files matter for this task?"</p>
+          <ul>
+            <li><strong>Speed:</strong> grep is fast for small repos; agentmako is indexed and fast for any size.</li>
+            <li><strong>Type-aware:</strong> grep is not; agentmako is (AST-parsed).</li>
+            <li><strong>Knows imports:</strong> grep doesn't; agentmako does (<code>imports_impact</code>).</li>
+            <li><strong>Knows routes:</strong> grep doesn't; agentmako does (<code>route_trace</code>).</li>
+            <li><strong>Knows schema:</strong> grep doesn't; agentmako does (<code>db_table_schema</code>).</li>
+            <li><strong>Returns ranked context:</strong> grep doesn't; agentmako does (<code>context_packet</code>).</li>
+            <li><strong>Tokens per agent turn:</strong> grep ~5-15k; agentmako ~600.</li>
+          </ul>
+        </details>
+
+        <details id="vs-cursor-index" class="faq-item">
+          <summary><strong>agentmako vs. Cursor's built-in indexing?</strong></summary>
+          <p>Cursor has a proprietary embedding-based index for Composer. agentmako is complementary, not competing:</p>
+          <ul>
+            <li><strong>Cursor's index</strong> — semantic, hosted, optimized for Cursor's UI. You can't inspect it or reuse it elsewhere.</li>
+            <li><strong>agentmako</strong> — typed graph, local, MCP-exposed. Same context available in Cursor <em>and</em> Claude Code, Codex, Cline simultaneously. You own the data.</li>
+          </ul>
+          <p>Most users run both. Cursor's UI for code search + agentmako for cross-tool agent context.</p>
+        </details>
+
+        <details id="why-mcp" class="faq-item">
+          <summary><strong>Why MCP and not just direct API calls?</strong></summary>
+          <p>Three reasons MCP wins for this use case:</p>
+          <ol>
+            <li><strong>One server, every client.</strong> Build agentmako once, it works in Claude Code, Codex, Cursor, Cline, Continue.dev, and everything else with MCP support — no per-client adapters.</li>
+            <li><strong>The agent picks the tool.</strong> With direct APIs, you'd write integration glue per agent. With MCP, the agent itself decides when to call which tool, based on the schemas you expose.</li>
+            <li><strong>stdio is simple.</strong> No auth, no HTTP, no rate limits. The agent spawns the process, talks to it via stdin/stdout, kills it when done.</li>
+          </ol>
+        </details>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

@@ -1,0 +1,142 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Troubleshooting agentmako — MCP, attachment, freshness, DB · agentmako"
+  description="Troubleshoot agentmako — agentmako command not found, MCP server fails to start, tools not appearing in Claude Code or Cursor, stale results, no project attached, database connection failed."
+  canonicalPath="/docs/troubleshooting.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Troubleshooting", "href": "/docs/troubleshooting.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Reference &middot; Troubleshooting</span>
+    <h1 style="margin-top:1rem;"><em>Troubleshooting</em> agentmako</h1>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server for AI
+      coding agents. When something goes wrong, the failure is almost
+      always one of: PATH, attachment, MCP wiring, freshness, or DB
+      connectivity. Diagnose in that order.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="not-found">
+          <h2 data-step="01">"agentmako command not found"</h2>
+          <p>The CLI isn't on PATH. Confirm:</p>
+          <pre><code>which agentmako    # macOS / Linux
+where agentmako    # Windows</code></pre>
+          <p>If empty:</p>
+          <ul>
+            <li>Re-install globally: <code>npm install -g agentmako</code>.</li>
+            <li>Make sure your shell PATH includes the npm global bin (<code>npm config get prefix</code>, then <code>/bin</code> on Unix or root on Windows).</li>
+            <li>Restart any agent that was launched before the install completed — Claude Code, Cursor, and Codex inherit PATH from the parent shell at startup.</li>
+          </ul>
+        </section>
+
+        <section id="mcp-fails">
+          <h2 data-step="02">MCP server fails to start</h2>
+          <p>Diagnose by running the server directly:</p>
+          <pre><code>$ agentmako mcp</code></pre>
+          <p>If it fails standalone, the same error will hit any agent. Common causes:</p>
+          <ul>
+            <li><strong>No project attached.</strong> See <a href="#no-project">No project attached</a>.</li>
+            <li><strong>Stale install.</strong> Re-run <code>npm install -g agentmako</code> and retry.</li>
+            <li><strong>macOS Gatekeeper:</strong> the binary needs an explicit "open" the first time. Run <code>agentmako --version</code> from a terminal.</li>
+          </ul>
+        </section>
+
+        <section id="no-tools">
+          <h2 data-step="03">Tools don't appear in Claude Code / Cursor / Codex / Cline</h2>
+          <p>The MCP server is installed but the agent doesn't see the tools.</p>
+          <ul>
+            <li><strong>Claude Code:</strong> run <code>/mcp</code> in the session. <code>mako-ai</code> should appear connected. If failed, click for the error.</li>
+            <li><strong>Cursor:</strong> check <strong>Settings → Features → MCP</strong>. Green = connected, red = failed, missing = config not read. Verify the path: <code>.cursor/mcp.json</code> (per-project) or <code>~/.cursor/mcp.json</code> (global).</li>
+            <li><strong>Codex CLI:</strong> the TOML block at <code>~/.codex/config.toml</code> must use <code>[mcp_servers.mako-ai]</code> with <code>command = "agentmako"</code> and <code>args = ["mcp"]</code>. Restart any running <code>codex</code> session.</li>
+            <li><strong>Cline:</strong> open the MCP Servers panel; the JSON block is read on save. If you see "disabled: true" anywhere, that's the issue.</li>
+          </ul>
+        </section>
+
+        <section id="not-calling">
+          <h2 data-step="04">Agent isn't calling Mako tools</h2>
+          <p>Tools are registered but the agent ignores them. Three layers:</p>
+          <ol>
+            <li><strong>Confirm registration</strong> — see above.</li>
+            <li><strong>Tell the agent to use them</strong> — drop the
+            <a href="/CLAUDE.md">agentmako CLAUDE.md template</a> into your project root. Without explicit instructions, agents default to grep.</li>
+            <li><strong>Be explicit in early prompts</strong> — for the first few turns, prompt: "Use the mako-ai <code>context_packet</code> tool first." Once the agent sees the tool's value, it tends to keep reaching for it.</li>
+          </ol>
+        </section>
+
+        <section id="stale">
+          <h2 data-step="05">Stale results</h2>
+          <p>Reef labels every piece of evidence with a freshness tag. If you're getting stale answers:</p>
+          <ol>
+            <li>Check <code>project_index_status</code>.</li>
+            <li>For exact post-edit text, use <code>live_text_search</code> (not <code>cross_search</code>).</li>
+            <li>Refresh: <code>project_index_refresh &lcub; "mode": "if_stale" &rcub;</code>.</li>
+            <li>Force only if the index looks actually wrong: <code>&lcub; "mode": "force" &rcub;</code> (expensive).</li>
+          </ol>
+          <p>Full freshness model: <a href="./concepts/freshness.html">How agentmako tracks freshness</a>.</p>
+        </section>
+
+        <section id="no-project">
+          <h2 data-step="06">No project attached</h2>
+          <p>Each project is registered separately so Mako knows which SQLite database to read.</p>
+          <pre><code>cd /path/to/your/project
+agentmako connect . --no-db
+agentmako doctor</code></pre>
+          <p><code>agentmako doctor</code> reports green/red for config, the local API service, and indexing. If red, the messages tell you what's missing.</p>
+        </section>
+
+        <section id="db-failed">
+          <h2 data-step="07">Database connection failed</h2>
+          <p>If <code>db_table_schema</code> or <code>db_rls</code> errors out:</p>
+          <ul>
+            <li>Run <code>db_ping</code> first — it returns a clear connectivity error.</li>
+            <li>Verify the keychain entry exists. Re-attach: <code>agentmako connect .</code> (interactive) or <code>--db-env DATABASE_URL --yes</code>.</li>
+            <li>For Supabase: confirm the <code>SUPABASE_URL</code> and <code>SUPABASE_SERVICE_ROLE_KEY</code> (or whichever you used) are still valid.</li>
+            <li>If you're hitting a network egress block, the read-only DB connection still needs network — the rest of agentmako does not.</li>
+          </ul>
+        </section>
+
+        <section id="index-out-of-date">
+          <h2 data-step="08">Index out of date</h2>
+          <p>You added or removed files and the index doesn't know.</p>
+          <ul>
+            <li>Quick: <code>working_tree_overlay</code> — snapshots the working tree without re-parsing.</li>
+            <li>Proper: <code>project_index_refresh &lcub; "mode": "if_stale" &rcub;</code>.</li>
+            <li>Force: <code>project_index_refresh &lcub; "mode": "force" &rcub;</code> when the index is actually wrong.</li>
+            <li>For DB schema changes: <code>db_reef_refresh</code>.</li>
+          </ul>
+        </section>
+
+        <section id="permissions">
+          <h2 data-step="09">Permission errors</h2>
+          <p>On macOS, the binary may need explicit "open" the first time. Run <code>agentmako --version</code> from a terminal once. On Windows, ensure your global npm bin is whitelisted by your endpoint protection.</p>
+          <p>For permission prompts in Cline, add tools to <code>autoApprove</code> in the MCP config — start with safe read-only tools: <code>context_packet</code>, <code>reef_scout</code>, <code>repo_map</code>, <code>cross_search</code>.</p>
+        </section>
+
+        <section id="bug">
+          <h2 data-step="10">How to file a bug</h2>
+          <p>Open an issue at
+          <a href="https://github.com/drhalto/agentmako/issues" rel="noopener">github.com/drhalto/agentmako/issues</a>
+          with:</p>
+          <ul>
+            <li>Output of <code>agentmako --version</code>.</li>
+            <li>Output of <code>agentmako doctor</code>.</li>
+            <li>The agent harness and version (Claude Code, Codex, Cursor, Cline).</li>
+            <li>The exact tool call (or MCP config) that fails.</li>
+            <li>The error text or unexpected output.</li>
+          </ul>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

@@ -1,0 +1,329 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="agentmako CLI reference · agentmako"
+  description="Full reference for the agentmako command-line interface — connect, doctor, mcp, project, tool, providers, and more."
+  canonicalPath="/docs/cli.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "CLI reference", "href": "/docs/cli.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Reference &middot; CLI</span>
+  <h1>agentmako <em>CLI reference</em></h1>
+  <p class="doc-hero__sub">
+    The <code>agentmako</code> CLI is the entry point for everything —
+    attaching projects, running the MCP server, managing model providers
+    and credentials, and inspecting state. Below is the full surface,
+    grouped by what you reach for it for.
+  </p>
+</header>
+
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+      <article class="doc-body" style="max-width: 78ch;">
+
+        <section id="quick">
+          <h2 data-step="01">Quick reference</h2>
+          <p>The five commands you'll use 95% of the time:</p>
+          <pre><code>agentmako connect .              # attach the current project
+agentmako doctor                 # green checks for config + service + index
+agentmako mcp                    # start the stdio MCP server
+agentmako tool list              # list registered tools
+agentmako status                 # show project + provider state</code></pre>
+          <p>Run any command with <code>--help</code> for inline flags
+          and examples.</p>
+        </section>
+
+        <section id="connect">
+          <h2 data-step="02">Project attachment</h2>
+
+          <h3><code>agentmako connect [path]</code></h3>
+          <p>The first command you run in a new project. Attaches the
+          project to Mako, indexes it, and (optionally) wires up a
+          database connection.</p>
+
+          <pre><code># interactive — prompts for DB URL, etc.
+agentmako connect .
+
+# non-interactive (CI):
+agentmako connect . --no-db
+agentmako connect . --db-env DATABASE_URL --yes</code></pre>
+
+          <p>Common flags:</p>
+          <ul>
+            <li><code>--no-db</code> — skip database wiring; you can
+            attach a DB later with <code>project db bind</code>.</li>
+            <li><code>--db-env VAR</code> — read the connection string
+            from an environment variable instead of prompting.</li>
+            <li><code>--yes</code> — accept all prompts. CI-friendly.</li>
+            <li><code>--name NAME</code> — override the auto-derived
+            project display name.</li>
+          </ul>
+
+          <h3><code>agentmako project list</code></h3>
+          <p>Lists all attached projects. Each project is a separate
+          Reef store keyed by canonical path.</p>
+
+          <h3><code>agentmako project attach [path]</code></h3>
+          <p>Same as <code>connect</code> but skips database setup
+          entirely. Use when you want a bare attachment.</p>
+
+          <h3><code>agentmako project detach [path]</code></h3>
+          <p>Removes the project from Mako's registry. Optional flags:</p>
+          <ul>
+            <li><code>--purge</code> — also delete the local SQLite
+            store under <code>.mako-ai/</code>.</li>
+            <li><code>--delete-secrets</code> — also remove the
+            project's database credentials from the OS keychain.</li>
+          </ul>
+
+          <h3><code>agentmako project index [path]</code></h3>
+          <p>Re-runs the indexer for one project. Equivalent to the
+          <code>project_index_refresh</code> tool with
+          <code>mode: "if_stale"</code>. Add <code>--force</code> for a
+          full re-parse.</p>
+
+          <h3><code>agentmako project status [path]</code></h3>
+          <p>Prints freshness counts (indexed/dirty/missing), Reef row
+          counts, last diagnostic run, and DB binding state.</p>
+        </section>
+
+        <section id="db">
+          <h2 data-step="03">Database</h2>
+
+          <h3><code>agentmako project db bind</code></h3>
+          <p>Add or replace a database connection on an attached
+          project. Connection strings are stored in the OS keychain;
+          the project config holds a keychain reference, not the URL.</p>
+          <pre><code>agentmako project db bind --db-env DATABASE_URL --yes
+agentmako project db bind --supabase-project xxxxxxxx</code></pre>
+
+          <h3><code>agentmako project db unbind</code></h3>
+          <p>Removes the database binding. Add
+          <code>--delete-secret</code> to also remove the keychain
+          entry.</p>
+
+          <h3><code>agentmako project db test</code></h3>
+          <p>Verifies the database is reachable. Same logic as the
+          <code>db_ping</code> MCP tool.</p>
+
+          <h3><code>agentmako project db verify</code></h3>
+          <p>Runs the read-only schema introspection queries to make
+          sure Mako has the permissions it needs (read schema, RLS,
+          functions). Stops at the first failure with a clear error.</p>
+
+          <h3><code>agentmako project db refresh</code></h3>
+          <p>Re-snapshots the schema into Reef. Run after migrations or
+          Supabase type regeneration. MCP equivalent:
+          <code>db_reef_refresh</code>.</p>
+        </section>
+
+        <section id="mcp">
+          <h2 data-step="04">MCP server</h2>
+
+          <h3><code>agentmako mcp</code></h3>
+          <p>Start the stdio MCP server. The agent harness (Claude
+          Code, Codex, Cursor, Cline) spawns this process via your MCP
+          config and talks to it on stdin/stdout. You don't usually run
+          this manually — but you can, to debug.</p>
+
+          <pre><code># run standalone to see the JSON-RPC handshake
+agentmako mcp</code></pre>
+
+          <p>Common flags:</p>
+          <ul>
+            <li><code>--project PATH</code> — pin the server to a
+            specific project (defaults to the current working
+            directory's attached project).</li>
+            <li><code>--log-level debug|info|warn|error</code> —
+            control stderr verbosity. JSON-RPC traffic stays on
+            stdout.</li>
+          </ul>
+
+          <h3><code>agentmako tool list</code></h3>
+          <p>Prints every tool currently exposed by the MCP server,
+          grouped by category. Includes mode (read/mutation),
+          description, and input schema. Authoritative runtime catalog.</p>
+
+          <h3><code>agentmako tool call NAME ARGS</code></h3>
+          <p>Invoke an MCP tool from the shell — the same call the
+          agent harness would make. Useful for debugging and CI
+          scripting.</p>
+          <pre><code>agentmako tool call context_packet \
+  --args '&lcub;"request":"trace auth flow","budgetTokens":4000&rcub;'</code></pre>
+        </section>
+
+        <section id="status">
+          <h2 data-step="05">Status &amp; diagnostics</h2>
+
+          <h3><code>agentmako doctor</code></h3>
+          <p>Top-level health check. Prints one line per subsystem
+          (config, API service, project index, database binding,
+          providers). All green = ready.</p>
+
+          <h3><code>agentmako status</code></h3>
+          <p>Compact dashboard: current project, freshness counts,
+          provider, recent activity. Run between sessions.</p>
+
+          <h3><code>agentmako verify [path]</code></h3>
+          <p>Runs the verification suite — checks evidence freshness
+          across the index against the working tree. MCP equivalent:
+          <code>verification_state</code>.</p>
+
+          <h3><code>agentmako refresh [path]</code></h3>
+          <p>Composite refresh — index + diagnostics + DB facts.
+          Useful as the "kick everything" command after a long break.</p>
+
+          <h3><code>agentmako git precommit</code></h3>
+          <p>Runs the staged-file route auth and boundary checks.
+          Designed to drop into a pre-commit hook:</p>
+          <pre><code># .git/hooks/pre-commit
+#!/bin/sh
+agentmako git precommit || exit 1</code></pre>
+        </section>
+
+        <section id="providers">
+          <h2 data-step="06">Model providers</h2>
+          <p>For the optional harness (chat / answer / workflow
+          commands). Not required for the MCP server itself.</p>
+
+          <h3><code>agentmako providers list</code></h3>
+          <p>Lists configured providers and their models.</p>
+
+          <h3><code>agentmako providers add</code></h3>
+          <p>Add a provider (Anthropic, OpenAI, Ollama, LM Studio,
+          etc.). Stores the API key in the OS keychain.</p>
+
+          <h3><code>agentmako providers test [name]</code></h3>
+          <p>Roundtrip test against the configured provider.</p>
+
+          <h3><code>agentmako providers remove [name]</code></h3>
+          <p>Removes the provider config and (with
+          <code>--delete-secret</code>) the keychain entry.</p>
+
+          <h3><code>agentmako keys set</code> / <code>keys delete</code></h3>
+          <p>Lower-level keychain controls when you need them
+          independent of provider configs.</p>
+        </section>
+
+        <section id="harness">
+          <h2 data-step="07">Optional harness commands</h2>
+          <p>If you've configured a provider, agentmako can run as a
+          coding agent itself. These are optional — the MCP server
+          works without them.</p>
+
+          <h3><code>agentmako chat</code></h3>
+          <p>Interactive chat loop using your configured provider and
+          Mako tools.</p>
+
+          <h3><code>agentmako answer ask "QUESTION"</code></h3>
+          <p>One-shot question against the project. Routes to a
+          canonical Mako tool and returns a structured answer.</p>
+
+          <h3><code>agentmako workflow packet "TASK"</code></h3>
+          <p>Generate a context packet for a task — the same shape
+          <code>context_packet</code> returns over MCP.</p>
+
+          <h3><code>agentmako session list / show / resume / rm</code></h3>
+          <p>Manage chat session history.</p>
+
+          <h3><code>agentmako memory remember / recall / list</code></h3>
+          <p>The harness's persistent memory store. Independent of
+          Reef facts/findings — these are user-curated notes.</p>
+
+          <h3><code>agentmako semantic search "QUERY"</code></h3>
+          <p>Vector search across embeddings, if you've enabled the
+          optional embeddings index.</p>
+
+          <h3><code>agentmako embeddings reindex</code></h3>
+          <p>Rebuild the embeddings index.</p>
+        </section>
+
+        <section id="permissions">
+          <h2 data-step="08">Permissions &amp; safety</h2>
+          <p>The harness can require approval for destructive actions
+          (running shell commands, mutating Reef, etc.). These
+          commands manage that ledger.</p>
+
+          <ul>
+            <li><code>agentmako permissions list</code> — show pending
+            and decided permission requests.</li>
+            <li><code>agentmako permissions approve / deny ID</code> —
+            decide a single request.</li>
+            <li><code>agentmako permissions add</code> — pre-grant a
+            permission so the harness doesn't ask again.</li>
+            <li><code>agentmako permissions remove</code> — revoke an
+            existing grant.</li>
+            <li><code>agentmako undo</code> — roll back the last
+            harness mutation, when undoable.</li>
+          </ul>
+        </section>
+
+        <section id="ops">
+          <h2 data-step="09">Misc operations</h2>
+
+          <h3><code>agentmako catalog status</code> / <code>catalog refresh</code></h3>
+          <p>Manage the harness's tool catalog cache. Most users never
+          touch these — they exist for when the published tool surface
+          drifts from the local cache.</p>
+
+          <h3><code>agentmako tier</code></h3>
+          <p>Print the current support tier for the active project
+          (which language/framework features Mako can fully analyze).</p>
+
+          <h3><code>agentmako usage</code></h3>
+          <p>Token / call usage for the harness, broken down by
+          provider.</p>
+
+          <h3><code>agentmako telemetry show</code></h3>
+          <p>Confirms what telemetry would be collected — which is
+          nothing. agentmako has no telemetry endpoint;
+          <code>telemetry show</code> exists so you can verify that.</p>
+
+          <h3><code>agentmako serve</code></h3>
+          <p>Run agentmako as a local HTTP service instead of stdio.
+          Used by the optional dashboard. Most agents use
+          <code>agentmako mcp</code> instead.</p>
+
+          <h3><code>agentmako dashboard</code></h3>
+          <p>Open the local web dashboard in your browser. Optional —
+          all dashboard data is also reachable via MCP tools.</p>
+        </section>
+
+        <section id="env">
+          <h2 data-step="10">Environment variables</h2>
+          <ul>
+            <li><code>MAKO_STATE_HOME</code> — override
+            <code>~</code> for global Mako state. Default:
+            <code>$HOME</code>.</li>
+            <li><code>DATABASE_URL</code> — common name for project
+            DB binding when using <code>--db-env DATABASE_URL</code>.</li>
+            <li><code>ANTHROPIC_API_KEY</code> /
+            <code>OPENAI_API_KEY</code> / etc. — picked up by
+            <code>providers add</code> if present.</li>
+            <li><code>NO_COLOR</code> — disable ANSI in CLI output.</li>
+            <li><code>MAKO_LOG_LEVEL</code> — global default for
+            stderr verbosity.</li>
+          </ul>
+        </section>
+
+        <section id="related">
+          <h2>Related</h2>
+          <ul>
+            <li><a href="./claude-code.html">Claude Code MCP setup</a></li>
+            <li><a href="./codex.html">Codex CLI MCP setup</a></li>
+            <li><a href="./cursor.html">Cursor MCP setup</a></li>
+            <li><a href="./cline.html">Cline (VS Code) MCP setup</a></li>
+            <li><a href="./troubleshooting.html">Troubleshooting</a></li>
+            <li><a href="./tools/">Full tool catalog</a></li>
+          </ul>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

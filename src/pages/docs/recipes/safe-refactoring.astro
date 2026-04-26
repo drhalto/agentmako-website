@@ -1,0 +1,168 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="How to refactor safely with AI agents · agentmako"
+  description="A walkthrough recipe — rename an exported function across a real codebase without shipping broken callers. Use imports_impact, file_findings, lint_files, git_precommit_check."
+  canonicalPath="/docs/recipes/safe-refactoring.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — safe refactoring recipe."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Recipes", "href": "/docs/recipes/"}, {"name": "Safe refactoring", "href": "/docs/recipes/safe-refactoring.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Recipe &middot; Refactoring</span>
+    <h1 style="margin-top:1rem;">How to <em>refactor safely</em> with AI agents</h1>
+    <p class="doc-hero__sub">
+      <strong>TL;DR:</strong> An AI agent renaming an exported function
+      will, by default, miss the dynamic callers, ESM-only re-exports, and
+      barrel files that grep doesn't find. Use
+      <code>imports_impact</code> + <code>imports_hotspots</code> +
+      <code>ast_find_pattern</code> + diagnostics to see the full blast
+      radius before you start. Tools used: <code>imports_impact</code>,
+      <code>imports_hotspots</code>, <code>ast_find_pattern</code>,
+      <code>file_findings</code>, <code>lint_files</code>,
+      <code>typescript_diagnostics</code>, <code>git_precommit_check</code>.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <section>
+        <h2>The scenario</h2>
+        <p>You want to rename <code>getUserById(id)</code> to
+        <code>fetchUser(id)</code>. The function is in
+        <code>lib/users/queries.ts</code> and is used "everywhere" — but
+        you don't actually know how many callers there are or what shape
+        they take.</p>
+      </section>
+
+      <section>
+        <h2>The vanilla approach (and why it falls over)</h2>
+        <p>An AI agent without an import graph reaches for grep:</p>
+        <pre><code>$ rg -n "getUserById" .</code></pre>
+        <p>That misses:</p>
+        <ul>
+          <li>Re-exports through barrels: <code>export &lcub; getUserById &rcub; from "../users/queries"</code> renamed to <code>fetchUser</code> downstream.</li>
+          <li>Default-export callers that import as <code>import getUser from "..."</code>.</li>
+          <li>Dynamic <code>import()</code> patterns.</li>
+          <li>Test mocks at <code>__mocks__/lib/users/queries.ts</code>.</li>
+          <li>Generated client SDKs that re-export from <code>queries.ts</code>.</li>
+        </ul>
+        <p>The agent renames the source, "all tests pass" (because the
+        mocks shadow the real module), and three days later production
+        breaks for the SDK consumers.</p>
+      </section>
+
+      <section>
+        <h2>The agentmako approach</h2>
+
+        <h3>Step 1 — <code>imports_impact</code></h3>
+        <p>Ask the index "what depends on this file?"</p>
+        <pre><code>&lcub;
+  "tool": "imports_impact",
+  "args": &lcub; "filePath": "lib/users/queries.ts", "limit": 200 &rcub;
+&rcub;</code></pre>
+        <p>Returns every indexed file that imports anything from
+        <code>queries.ts</code>, including re-export chains. You learn
+        there are 47 direct importers, 11 of them re-exports through
+        <code>lib/users/index.ts</code>, and 3 generated SDK files under
+        <code>packages/sdk/</code> that you would have missed entirely.</p>
+
+        <h3>Step 2 — <code>imports_hotspots</code></h3>
+        <pre><code>&lcub;
+  "tool": "imports_hotspots",
+  "args": &lcub; "limit": 30 &rcub;
+&rcub;</code></pre>
+        <p>Tells you which of those importers are themselves widely used.
+        If <code>lib/users/index.ts</code> is imported by 120 other files,
+        that's the file you want to update first to keep the
+        re-export name surface stable.</p>
+
+        <h3>Step 3 — <code>ast_find_pattern</code></h3>
+        <p>Catch the patterns grep can't:</p>
+        <pre><code>&lcub;
+  "tool": "ast_find_pattern",
+  "args": &lcub;
+    "pattern": "getUserById($A)",
+    "languages": ["ts", "tsx"],
+    "maxMatches": 200
+  &rcub;
+&rcub;</code></pre>
+        <p>Structural search returns every actual call site as an AST
+        match, with file paths and line ranges. Each match has an
+        <code>ackableFingerprint</code> if you want to mark intentional
+        legacy uses.</p>
+
+        <h3>Step 4 — diagnostics before edits</h3>
+        <pre><code>&lcub;
+  "tool": "typescript_diagnostics",
+  "args": &lcub; "files": ["lib/users/queries.ts", "lib/users/index.ts"] &rcub;
+&rcub;</code></pre>
+        <p>Get a clean baseline. If TSC reports issues unrelated to your
+        rename, you'll know they were pre-existing — not caused by the
+        refactor.</p>
+
+        <h3>Step 5 — make the edits, then re-run diagnostics</h3>
+        <p>Rename in source, update the barrel re-exports, update the
+        SDK files. Re-run <code>typescript_diagnostics</code> on the
+        same files. Compare findings: any new ones are caused by the
+        refactor.</p>
+
+        <h3>Step 6 — pre-commit gate</h3>
+        <pre><code>&lcub;
+  "tool": "git_precommit_check",
+  "args": &lcub;&rcub;
+&rcub;</code></pre>
+        <p>Catches staged route auth and boundary regressions before you
+        ship.</p>
+      </section>
+
+      <section>
+        <h2>Variations</h2>
+        <ul>
+          <li><strong>API surface change (not just a rename):</strong>
+          add <code>cross_search</code> for the old name across schema,
+          RPCs, and routes — sometimes a "function name" leaks into a
+          DB function or a Next.js route.</li>
+          <li><strong>Breaking change you can't avoid:</strong> use
+          <code>imports_impact</code> output as a downstream PR list.
+          Each downstream owner gets a focused PR rather than a single
+          giant one.</li>
+          <li><strong>Public package:</strong> after the in-repo edits,
+          add a deprecation shim that re-exports the old name with
+          <code>@deprecated</code>. Use <code>file_findings</code> on the
+          shim to catch acks/diagnostics that flag it for removal in a
+          later release.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Tools used in this recipe</h2>
+        <ul>
+          <li><code>imports_impact</code> — files that depend on a file.</li>
+          <li><code>imports_hotspots</code> — most widely-imported files in the project.</li>
+          <li><code>ast_find_pattern</code> — structural ast-grep over indexed JS/TS/TSX.</li>
+          <li><code>file_findings</code> — durable findings for a file.</li>
+          <li><code>lint_files</code> — Mako rule-pack diagnostics.</li>
+          <li><code>typescript_diagnostics</code> — TSC diagnostics persisted into Reef.</li>
+          <li><code>git_precommit_check</code> — staged TS/TSX boundary checks.</li>
+          <li><code>cross_search</code> — search a term across code, schema, RPC, routes, memories.</li>
+        </ul>
+      </section>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="./auth-flow-tracing.html">How to trace an auth flow</a></li>
+          <li><a href="./debugging-with-context.html">Debug a tricky bug with <code>context_packet</code></a></li>
+          <li><a href="../concepts/reef-engine.html">What is the Reef Engine?</a> — durable findings live here.</li>
+          <li><a href="../faq.html#hallucinate">FAQ: how do I stop my AI agent from hallucinating?</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

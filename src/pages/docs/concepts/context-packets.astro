@@ -1,0 +1,297 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="What is a context packet? · agentmako"
+  description="A context packet is a ranked, source-labeled bundle of likely-relevant files, routes, schema objects, findings, and next-reads — returned deterministically by agentmako's context_packet tool."
+  canonicalPath="/docs/concepts/context-packets.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — context packet explainer."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Concepts", "href": "/docs/concepts/"}, {"name": "Context packets", "href": "/docs/concepts/context-packets.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Concept &middot; Context packets</span>
+    <h1 style="margin-top:1rem;">What is a <em>context packet</em>?</h1>
+    <p class="doc-hero__sub">
+      <strong>A context packet is a ranked, source-labeled bundle of
+      likely-relevant files, routes, schema objects, findings, and
+      next-reads</strong> — returned deterministically by agentmako's
+      <code>context_packet</code> tool, instead of letting the agent grep
+      blind.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="tldr">
+          <h2>TL;DR</h2>
+          <p>You hand <code>context_packet</code> a one-line task ("debug
+          why manager onboarding role checks are failing"). You get back a
+          structured packet: the most likely files, the routes touching
+          them, the active findings on those files, the database objects
+          they reference, scoped instructions from
+          <code>.mako/instructions.md</code>, and a recommendation for what
+          to read next. The agent starts there instead of grepping its way
+          in.</p>
+        </section>
+
+        <section id="problem">
+          <h2>The problem this solves</h2>
+          <p>An AI coding agent without persistent context starts every
+          turn from zero. The first thing it does is explore: walk
+          directories, grep for likely strings, read files, re-read files,
+          guess at imports. This burns tokens — typically 5,000 to 15,000
+          per turn — before any actual code work begins.</p>
+
+          <p>Most of that exploration is wasted. The agent reads the same
+          files repeatedly across turns. It misses the database schema
+          because it doesn't know to look at it. It hallucinates routes
+          because it pattern-matches from training data instead of looking
+          at the real router.</p>
+
+          <p>A context packet collapses that whole opening sequence into
+          one tool call.</p>
+        </section>
+
+        <section id="shape">
+          <h2>The shape of a context packet</h2>
+          <p>Every context packet has the same fields. Names match the
+          actual MCP tool output:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// context_packet response (abridged)</span>
+            </div>
+<pre>&lcub;
+  <span class="c-key">"primaryContext"</span>: [
+    &lcub;
+      <span class="c-key">"path"</span>: <span class="c-str">"app/dashboard/manager/layout.tsx"</span>,
+      <span class="c-key">"reason"</span>: <span class="c-str">"manager-scoped layout — likely role check site"</span>,
+      <span class="c-key">"score"</span>: 0.91
+    &rcub;,
+    &lcub; <span class="c-key">"path"</span>: <span class="c-str">"lib/auth/dal.ts"</span>, <span class="c-key">"reason"</span>: <span class="c-str">"role resolution"</span>, <span class="c-key">"score"</span>: 0.87 &rcub;
+  ],
+  <span class="c-key">"relatedContext"</span>: [
+    &lcub; <span class="c-key">"path"</span>: <span class="c-str">"lib/auth/roles.ts"</span>, <span class="c-key">"score"</span>: 0.62 &rcub;
+  ],
+  <span class="c-key">"activeFindings"</span>: [
+    &lcub;
+      <span class="c-key">"code"</span>: <span class="c-str">"auth/missing-tenant-scope"</span>,
+      <span class="c-key">"path"</span>: <span class="c-str">"lib/auth/dal.ts"</span>,
+      <span class="c-key">"line"</span>: 142,
+      <span class="c-key">"severity"</span>: <span class="c-str">"warn"</span>
+    &rcub;
+  ],
+  <span class="c-key">"risks"</span>: [
+    <span class="c-str">"This file touches admin_audit_log — RLS-sensitive."</span>
+  ],
+  <span class="c-key">"scopedInstructions"</span>: [
+    &lcub; <span class="c-key">"file"</span>: <span class="c-str">".mako/instructions.md#auth"</span>, <span class="c-key">"text"</span>: <span class="c-str">"..."</span> &rcub;
+  ],
+  <span class="c-key">"recommendedHarnessPattern"</span>: <span class="c-str">"read primaryContext → call file_findings → edit"</span>,
+  <span class="c-key">"expandableTools"</span>: [<span class="c-str">"route_trace"</span>, <span class="c-str">"db_rls"</span>, <span class="c-str">"reef_inspect"</span>]
+&rcub;</pre>
+          </div>
+
+          <p>Each section has a clear purpose:</p>
+
+          <ul>
+            <li><strong><code>primaryContext</code></strong> — top-ranked
+            files. Read these first.</li>
+            <li><strong><code>relatedContext</code></strong> — second-tier
+            files that may matter once you've read the primary set.</li>
+            <li><strong><code>activeFindings</code></strong> — durable
+            findings on those files (lint/audit issues, design rules
+            violations, prior reviews).</li>
+            <li><strong><code>risks</code></strong> — short risk callouts
+            ("this touches RLS-sensitive tables").</li>
+            <li><strong><code>scopedInstructions</code></strong> — relevant
+            slices of <code>.mako/instructions.md</code> /
+            <code>AGENTS.md</code> for these files.</li>
+            <li><strong><code>recommendedHarnessPattern</code></strong> —
+            literal next-tool suggestion, like a recipe.</li>
+            <li><strong><code>expandableTools</code></strong> — other Mako
+            tools that would be useful next.</li>
+          </ul>
+        </section>
+
+        <section id="how">
+          <h2>How agentmako produces them</h2>
+          <p>The packet is composed from the local SQLite index and the
+          Reef Engine, not from a model. Inputs:</p>
+
+          <ul>
+            <li>Symbol/file/route/import index, refreshed on demand.</li>
+            <li>Postgres or Supabase schema snapshot (when configured).</li>
+            <li>Reef facts and findings — durable across sessions.</li>
+            <li>Recently-edited files (working tree overlay).</li>
+            <li>Scoped instructions in <code>.mako/instructions.md</code>.</li>
+          </ul>
+
+          <p>The ranking is deterministic. Same request + same index state
+          + same findings = same packet. No embedding noise, no temperature
+          knob.</p>
+
+          <p>You can shape the packet at call time:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// context_packet input</span>
+            </div>
+<pre>&lcub;
+  <span class="c-key">"request"</span>: <span class="c-str">"review auth impact of this change"</span>,
+  <span class="c-key">"focusFiles"</span>: [<span class="c-str">"lib/auth/dal.ts"</span>, <span class="c-str">"app/dashboard/manager/layout.tsx"</span>],
+  <span class="c-key">"includeInstructions"</span>: <span class="c-keyword">true</span>,
+  <span class="c-key">"includeRisks"</span>: <span class="c-keyword">true</span>,
+  <span class="c-key">"freshnessPolicy"</span>: <span class="c-str">"prefer_fresh"</span>,
+  <span class="c-key">"budgetTokens"</span>: 4000
+&rcub;</pre>
+          </div>
+        </section>
+
+        <section id="deterministic">
+          <h2>Why "deterministic" matters</h2>
+          <p>If your context engine is probabilistic, the agent gets
+          different answers for the same question. That makes regressions
+          hard to reason about — was the bad output from the model, or
+          from a different shuffle of retrieved chunks?</p>
+
+          <p>A deterministic packet means the agent's behavior is a
+          function of the index state. When the index is fresh, the
+          packet is correct. When the index is stale, the packet is
+          labeled stale (see <a href="./freshness.html">freshness</a>).
+          You can replay the same call and reason about what changed.</p>
+        </section>
+
+        <section id="vs-rag">
+          <h2>Context packets vs. RAG / vector search</h2>
+          <p>RAG retrieval treats code as text and looks for semantically
+          similar chunks. That works for unstructured documents but loses
+          the structure code already has — file paths, types, imports,
+          route definitions, foreign keys.</p>
+
+          <p>A context packet uses that structure directly. "Find the
+          handler for <code>/api/manager/onboarding</code>" is a graph
+          query, not a similarity search. The handler resolves through the
+          route table, then the import graph, then symbol references — all
+          deterministic.</p>
+
+          <p>Embeddings are still useful in some places (e.g. ranking
+          fuzzy "what about this" follow-ups), but the spine of a Mako
+          packet is the typed graph.</p>
+        </section>
+
+        <section id="ranking">
+          <h2>How files get ranked</h2>
+          <p>The score on each <code>primaryContext</code> entry is a
+          weighted combination of deterministic signals — not a model
+          inference. Roughly:</p>
+
+          <ul>
+            <li><strong>Direct match</strong> — the request mentions a
+            symbol, route, file, or table that resolves through the index
+            to this file.</li>
+            <li><strong>Graph proximity</strong> — files reachable in
+            one or two hops through imports, route handlers, or schema
+            references from the directly-matched file.</li>
+            <li><strong>Recent edits</strong> — files touched in the
+            current working tree get a small boost. The agent is usually
+            working on something nearby.</li>
+            <li><strong>Convention match</strong> — files that match
+            project-wide conventions surfaced by
+            <code>project_conventions</code> (auth guards, route
+            patterns).</li>
+            <li><strong>Reef weight</strong> — files with active
+            findings or recent diagnostic runs rank higher; the agent
+            should know about them.</li>
+          </ul>
+
+          <p>The <code>budgetTokens</code> input caps the total token
+          weight of returned files. Mako trims from the bottom of the
+          ranked list until the budget fits.</p>
+        </section>
+
+        <section id="practice">
+          <h2>Context packets in practice</h2>
+
+          <h3>The opening call</h3>
+          <p>For any vague task, start with one
+          <code>context_packet</code>. The agent reads the
+          <code>primaryContext</code> files first, then optionally calls
+          <code>file_findings</code> on each before editing. This single
+          call replaces 5–10 grep/file-walk turns.</p>
+
+          <h3>Focused review</h3>
+          <p>When you already know the files involved, pass them via
+          <code>focusFiles</code>. Mako keeps the same packet shape but
+          biases ranking toward those files and their immediate
+          neighborhood — useful for targeted code review.</p>
+
+          <h3>Pre-edit risk check</h3>
+          <p>Set <code>includeRisks: true</code>. If the file touches
+          tenant-keyed tables, RLS-sensitive routes, or auth boundaries,
+          the packet flags it before the agent edits. Cheap to ask;
+          expensive to ignore.</p>
+        </section>
+
+        <section id="not">
+          <h2>What context packets are not</h2>
+          <ul>
+            <li><strong>Not the source of truth.</strong> The packet
+            points the agent at files. The files themselves are still
+            the truth — read them.</li>
+            <li><strong>Not infinite.</strong> The
+            <code>budgetTokens</code> setting is real. Asking for "the
+            whole codebase" returns the top-ranked slice, not
+            everything.</li>
+            <li><strong>Not always fresh.</strong> The packet's freshness
+            is the freshness of the underlying index. After edits, prefer
+            <code>live_text_search</code> for exact line numbers.</li>
+            <li><strong>Not a write surface.</strong>
+            <code>context_packet</code> is read-only. The agent edits via
+            its normal file-edit tools after reading the packet.</li>
+          </ul>
+        </section>
+
+        <section id="pitfalls">
+          <h2>Common pitfalls</h2>
+          <ul>
+            <li><strong>Skipping the packet on follow-ups.</strong>
+            After 5–10 turns the agent's working memory drifts. Re-call
+            <code>context_packet</code> with a fresh request; ranking
+            shifts as edits land.</li>
+            <li><strong>Asking too broadly.</strong> "Help me with this
+            project" produces a generic packet. "Trace why
+            <code>/api/x</code> returns 403 for some users" produces a
+            targeted one.</li>
+            <li><strong>Trusting line numbers from a stale index.</strong>
+            The packet's <code>line</code> fields are as current as the
+            index. After heavy edits, refresh first or use
+            <code>live_text_search</code> for line-accurate work.</li>
+            <li><strong>Ignoring <code>activeFindings</code>.</strong>
+            They're the cheapest signal in the packet. If a finding on
+            the file mentions exactly the bug you're chasing, you're
+            done thinking — start there.</li>
+          </ul>
+        </section>
+
+        <section id="related">
+          <h2>Related</h2>
+          <ul>
+            <li><a href="./mcp.html">What is the Model Context Protocol?</a></li>
+            <li><a href="./reef-engine.html">What is the Reef Engine?</a> — the durable fact/finding layer that activeFindings reads from.</li>
+            <li><a href="./freshness.html">Freshness model</a> — when can you trust an indexed packet?</li>
+            <li><a href="../recipes/debugging-with-context.html">Debug a tricky bug with context_packet</a> — recipe walkthrough.</li>
+            <li><a href="../faq.html">FAQ</a> — common questions about codebase context.</li>
+          </ul>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

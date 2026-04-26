@@ -1,0 +1,51 @@
+name: Deploy to GitHub Pages
+
+# Push to main → build the Astro site → publish to GitHub Pages.
+# `workflow_dispatch` lets you trigger a manual rebuild from the
+# Actions tab if you ever need to re-deploy without a code change.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Permissions required for the deploy-pages action to upload an artifact.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Cancel in-progress runs from the same branch — only the latest matters.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Astro's official action handles Node + package-manager detection,
+      # installs deps, runs `astro build`, and uploads dist/ as the
+      # Pages artifact. Pinned to a specific major to avoid surprises.
+      - name: Install dependencies and build
+        uses: withastro/action@v3
+        # Optional inputs (uncomment if needed):
+        # with:
+        #   path: .              # root of the Astro project
+        #   node-version: 20     # Node major version
+        #   package-manager: npm@latest
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

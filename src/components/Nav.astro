@@ -1,0 +1,22 @@
+---
+// Top nav used by docs pages. The landing has its own nav inline.
+interface Props {
+  variant?: 'docs' | 'landing';
+}
+const { variant = 'docs' } = Astro.props;
+---
+<nav class="nav">
+  <div class="container nav__inner">
+    <a href="/" class="brand">
+      <img class="brand__mark" src="/assets/site-files/favicon-32x32.png" alt="agentmako logo" width="32" height="32" />
+      agentmako
+    </a>
+    <ul class="nav__links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/docs/">Docs</a></li>
+      <li><a href="/blog/">Blog</a></li>
+      <li><a href="/docs/faq.html">FAQ</a></li>
+      <li><a href="https://github.com/drhalto/agentmako" rel="noopener">GitHub</a></li>
+    </ul>
+  </div>
+</nav>

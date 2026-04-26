@@ -1,0 +1,108 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Trace &amp; flow tools — route_trace, trace_file, graph_path · agentmako"
+  description="The trace and flow cluster — route_trace, route_context, trace_file, trace_table, trace_rpc, trace_edge, trace_error, flow_map, graph_path, auth_path."
+  canonicalPath="/docs/tools/flow.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Tools", "href": "/docs/tools/"}, {"name": "Trace &amp; flow", "href": "/docs/tools/flow.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Tools &middot; Trace &amp; flow</span>
+    <h1 style="margin-top:1rem;"><em>Trace &amp; flow</em> tools</h1>
+    <p class="doc-hero__sub">
+      Walk the typed graph: routes to handlers, files through imports
+      and dependents, tables through their app-code references, RPCs
+      through their callers. All read-only.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <article id="route_trace">
+        <h2><code>route_trace</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace a route to its indexed handler, matching files, and nearby evidence.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "route": "/api/manager/onboarding", "verb": "POST" &rcub;</code></pre>
+      </article>
+
+      <article id="route_context">
+        <h2><code>route_context</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Route resolution plus surrounding layout, middleware, and client/server boundary checks.</p>
+      </article>
+
+      <article id="trace_file">
+        <h2><code>trace_file</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace a file through symbols, imports, dependents, routes, and related evidence.</p>
+        <p>Useful as a "explain this file" entry point.</p>
+      </article>
+
+      <article id="trace_edge">
+        <h2><code>trace_edge</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace a handler or edge function through routes, callers, tables, RPCs, and DB triggers.</p>
+      </article>
+
+      <article id="trace_error">
+        <h2><code>trace_error</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace an error term across throw sites, catch handlers, and PL/pgSQL bodies.</p>
+        <p>First call when debugging a runtime error you've seen in Sentry/logs.</p>
+      </article>
+
+      <article id="trace_table">
+        <h2><code>trace_table</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace a table through schema shape, RPC-to-table edges, and app-code <code>.from()</code> call sites.</p>
+      </article>
+
+      <article id="trace_rpc">
+        <h2><code>trace_rpc</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace an RPC through definition, body references, table refs, and app-code <code>.rpc()</code> call sites.</p>
+      </article>
+
+      <article id="flow_map">
+        <h2><code>flow_map</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Convert a graph path into ordered steps and boundaries — useful when explaining a multi-hop request flow to the agent.</p>
+      </article>
+
+      <article id="graph_path">
+        <h2><code>graph_path</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Find a shortest typed path between two entities in the graph (file → table, route → RPC, etc.).</p>
+      </article>
+
+      <article id="graph_neighbors">
+        <h2><code>graph_neighbors</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Adjacent entities for a node — imports, exports, callers, callees.</p>
+      </article>
+
+      <article id="auth_path">
+        <h2><code>auth_path</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Trace likely auth boundaries for a route, file, or feature.</p>
+        <p>Returns the route → likely auth-guard files → role/session call sites → relevant tables. The first call when the question is "is this protected?".</p>
+      </article>
+
+      <article id="table_neighborhood">
+        <h2><code>table_neighborhood</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Table-centered context bundle: schema, FKs, RLS, RPCs that touch it, app-code call sites.</p>
+      </article>
+
+      <article id="rpc_neighborhood">
+        <h2><code>rpc_neighborhood</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>RPC-centered context bundle: signature, body, tables touched, app-code callers.</p>
+      </article>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="./code-intel.html">Code intelligence tools</a> — imports_impact, ast_find_pattern, cross_search.</li>
+          <li><a href="./database.html">Database tools</a> — db_table_schema, db_rls, schema_usage.</li>
+          <li><a href="../recipes/auth-flow-tracing.html">How to trace an auth flow</a></li>
+          <li><a href="../recipes/debugging-with-context.html">Debug a tricky bug with context_packet</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

@@ -1,0 +1,175 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Cursor MCP setup with agentmako · agentmako"
+  description="Wire agentmako into Cursor via .cursor/mcp.json. Composer (⌘+I) and Agent mode both see Mako tools. Per-project or global setup."
+  canonicalPath="/docs/cursor.html"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako — MCP setup for Cursor."
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Cursor", "href": "/docs/cursor.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Setup &middot; Cursor</span>
+    <h1 style="margin-top:1rem;">Mako, meet <em>Cursor</em>.</h1>
+    <h2 style="margin-top:1rem; font-size:1.1rem; font-weight:500; color:var(--fg-dim);">How to set up MCP in Cursor with agentmako</h2>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server that drops
+      into Cursor through <code>~/.cursor/mcp.json</code> (global) or
+      <code>.cursor/mcp.json</code> (per-project). Set it up once and Mako
+      tools are available in Composer (<kbd>⌘ I</kbd>) and Agent mode.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+
+      <article class="doc-body">
+
+        <section id="prereq">
+          <h2 data-step="01">Prerequisites</h2>
+          <ul>
+            <li><strong>Node.js 20 or newer</strong></li>
+            <li><strong>Cursor</strong> 0.42 or later (MCP support)</li>
+            <li><strong>agentmako on PATH</strong></li>
+          </ul>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// install &amp; attach</span>
+              <button class="copy-inline" data-copy-target="cur-prereq">Copy</button>
+            </div>
+<pre id="cur-prereq"><span class="c-prompt">$</span> npm install -g agentmako
+<span class="c-prompt">$</span> cd /path/to/your/project
+<span class="c-prompt">$</span> agentmako connect . --no-db
+<span class="c-prompt">$</span> agentmako doctor</pre>
+          </div>
+        </section>
+
+        <section id="config">
+          <h2 data-step="02">Add to mcp.json</h2>
+
+          <h3>Per-project (recommended)</h3>
+          <p>Create <code>.cursor/mcp.json</code> at your project root:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// .cursor/mcp.json</span>
+              <button class="copy-inline" data-copy-target="cur-json">Copy</button>
+            </div>
+<pre id="cur-json">&lcub;
+  <span class="c-key">"mcpServers"</span>: &lcub;
+    <span class="c-key">"mako-ai"</span>: &lcub;
+      <span class="c-key">"command"</span>: <span class="c-str">"agentmako"</span>,
+      <span class="c-key">"args"</span>: [<span class="c-str">"mcp"</span>]
+    &rcub;
+  &rcub;
+&rcub;</pre>
+          </div>
+
+          <h3>Global</h3>
+          <p>If you want Mako everywhere, put the same JSON in
+          <code>~/.cursor/mcp.json</code> instead.</p>
+
+          <div class="callout">
+            <strong>Project-scoped is usually better</strong>
+            Mako only returns useful results for the project it's been attached
+            to. Per-project config means Cursor won't try to load Mako in repos
+            you haven't connected.
+          </div>
+        </section>
+
+        <section id="enable">
+          <h2 data-step="03">Enable in settings</h2>
+          <p>Open <strong>Cursor Settings → Features → MCP</strong> (or
+          <strong>Cursor Settings → MCP</strong> in newer builds). You should
+          see <code>mako-ai</code> with a green dot. If it's red, click it
+          to see the error.</p>
+
+          <p>While you're there: Cursor lets you toggle individual tools.
+          For most projects, leaving everything on is fine. If you want
+          to start small, enable just <code>context_packet</code>,
+          <code>reef_scout</code>, and <code>repo_map</code>.</p>
+        </section>
+
+        <section id="first">
+          <h2 data-step="04">First task</h2>
+          <p>Open Composer (<kbd>⌘ I</kbd> / <kbd>Ctrl I</kbd>), switch to
+          Agent mode, and try:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// prompt</span>
+            </div>
+<pre>Use the mako-ai <span class="c-str">context_packet</span> tool first.
+Task: <span class="c-str">"trace how a user lands on the dashboard
+after sign-in"</span>.
+
+Show me the packet, then walk me through the relevant
+files — don't grep until after.</pre>
+          </div>
+
+          <p>You'll see Cursor make a single Mako tool call, get back the
+          target file plus routes and findings, and use that as the
+          starting point. Token usage on the trace is dramatically lower
+          than the unguided version.</p>
+        </section>
+
+        <section id="rules">
+          <h2 data-step="05">Cursor Rules: tell it when to use Mako</h2>
+          <p>Cursor's Project Rules system lets you steer the agent. Add a
+          rule file at <code>.cursor/rules/mako.mdc</code>:</p>
+
+          <div class="code-block">
+            <div class="code-block__head">
+              <span class="code-block__lang">// .cursor/rules/mako.mdc</span>
+              <button class="copy-inline" data-copy-target="cur-rules">Copy</button>
+            </div>
+<pre id="cur-rules">---
+description: Use agentmako before grep
+alwaysApply: true
+---
+
+When the user asks a question that requires locating
+code in this repo, call the <span class="c-str">mako-ai</span> server's
+<span class="c-str">context_packet</span> or <span class="c-str">reef_scout</span> tool BEFORE issuing
+any grep / file reads.
+
+For natural-language repo questions, prefer
+<span class="c-str">reef_scout</span>. For concrete coding tasks, prefer
+<span class="c-str">context_packet</span>.
+
+Only fall back to grep if Mako returns no candidates.</pre>
+          </div>
+
+          <p>Or paste the agentmako project's <a href="https://github.com/drhalto/agentmako/blob/main/AGENTS.md">AGENTS.md</a>
+          as the body of the rule for the full guidance.</p>
+        </section>
+
+        <section id="trouble">
+          <h2 data-step="06">Troubleshooting</h2>
+
+          <h3>Red dot in MCP settings</h3>
+          <p>Click the server entry to see the error message. Most common:
+          Cursor can't find <code>agentmako</code> on PATH because it was
+          launched before the install finished. Quit Cursor fully and
+          re-open.</p>
+
+          <h3>Server starts but tools never get called</h3>
+          <p>Cursor's auto-tool-selection is conservative. Add the project
+          rule from section 05, or explicitly ask: "use the mako-ai
+          context_packet tool for this." Once the agent uses it once and
+          sees the value, it tends to keep reaching for it.</p>
+
+          <h3>Windows: command not found</h3>
+          <p>Use the absolute path. <code>where agentmako</code> in
+          PowerShell, then put the full <code>.cmd</code> path in
+          <code>command</code>.</p>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

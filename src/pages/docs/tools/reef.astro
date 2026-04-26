@@ -1,0 +1,125 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Reef Engine tools — project_findings, file_findings, ack ledger · agentmako"
+  description="The Reef Engine cluster — project_findings, file_findings, project_open_loops, verification_state, project_conventions, finding_ack, and the durable memory layer."
+  canonicalPath="/docs/tools/reef.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Tools", "href": "/docs/tools/"}, {"name": "Reef Engine", "href": "/docs/tools/reef.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Tools &middot; Reef Engine</span>
+    <h1 style="margin-top:1rem;"><em>Reef Engine</em> tools</h1>
+    <p class="doc-hero__sub">
+      Reef is the durable fact and finding layer. These tools query and
+      update what Mako already knows about a project — across sessions.
+      Read first, ack last.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <article id="project_findings">
+        <h2><code>project_findings</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Active durable findings for the project. "What's on fire?" view across all files.</p>
+      </article>
+
+      <article id="file_findings">
+        <h2><code>file_findings</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Findings attached to one file. Read this before editing a sensitive file — someone may have already analyzed it.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "filePath": "lib/auth/dal.ts", "limit": 50 &rcub;</code></pre>
+      </article>
+
+      <article id="project_facts">
+        <h2><code>project_facts</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Lower-level facts behind project findings. Useful when a finding cites a fact you want to inspect.</p>
+      </article>
+
+      <article id="file_facts">
+        <h2><code>file_facts</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Indexed facts for one file (symbols, exports, imports, route mappings).</p>
+      </article>
+
+      <article id="project_open_loops">
+        <h2><code>project_open_loops</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Unresolved findings, stale facts, and failed diagnostic runs in one view.</p>
+      </article>
+
+      <article id="verification_state">
+        <h2><code>verification_state</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Whether cached diagnostics still cover current working-tree facts. Tells you if "everything's fine" is current or stale.</p>
+      </article>
+
+      <article id="project_conventions">
+        <h2><code>project_conventions</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Discovered auth guards, runtime boundaries, generated paths, route patterns, and schema usage conventions.</p>
+        <h3>When to use it</h3>
+        <p>Onboarding the agent to project rules without re-reading the codebase.</p>
+      </article>
+
+      <article id="rule_memory">
+        <h2><code>rule_memory</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Rule descriptors plus finding history. Useful when investigating recurring lint patterns.</p>
+      </article>
+
+      <article id="reef_instructions">
+        <h2><code>reef_instructions</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Scoped <code>.mako/instructions.md</code> and <code>AGENTS.md</code> instructions for requested files.</p>
+      </article>
+
+      <article id="project_index_refresh">
+        <h2><code>project_index_refresh</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Run the project indexer and report freshness changes.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "mode": "if_stale", "reason": "after batch of edits" &rcub;</code></pre>
+        <p>Use <code>mode: "if_stale"</code> for the cheap path. <code>mode: "force"</code> only when indexed answers look wrong.</p>
+      </article>
+
+      <article id="working_tree_overlay">
+        <h2><code>working_tree_overlay</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Snapshot working-tree file facts (existence, hash, size) without reparsing AST/imports/routes/schema.</p>
+      </article>
+
+      <article id="finding_ack">
+        <h2><code>finding_ack</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Mark a finding as reviewed-safe in the local ledger. Don't ack noise — acks are a real review action.</p>
+        <h3>Input (from <code>lint_files</code>)</h3>
+        <pre><code>&lcub;
+  "category":     "&lt;finding.code&gt;",
+  "subjectKind":  "diagnostic_issue",
+  "filePath":     "&lt;finding.path&gt;",
+  "fingerprint":  "&lt;finding.identity.matchBasedId&gt;",
+  "reason":       "Reviewed false positive because ...",
+  "sourceToolName": "lint_files",
+  "sourceRuleId": "&lt;finding.code&gt;"
+&rcub;</code></pre>
+      </article>
+
+      <article id="finding_ack_batch">
+        <h2><code>finding_ack_batch</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Same payload shape as <code>finding_ack</code>, applied across many findings in one call. For sweeping reviews.</p>
+      </article>
+
+      <article id="finding_acks_report">
+        <h2><code>finding_acks_report</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Report on what's been acked. Run this before assuming a clean diagnostic result means no one suppressed anything.</p>
+      </article>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="../concepts/reef-engine.html">What is the Reef Engine?</a></li>
+          <li><a href="../concepts/freshness.html">Freshness model</a></li>
+          <li><a href="./context.html">Context tools</a> — context_packet pulls activeFindings from Reef.</li>
+          <li><a href="./diagnostics.html">Diagnostic tools</a> — they write into Reef.</li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

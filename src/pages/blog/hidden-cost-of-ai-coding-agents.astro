@@ -1,0 +1,267 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="The Hidden Cost of AI Coding Agents (and How to Cut It)"
+  description="Most of your Claude / GPT bill is context, not generation. Here's the math, why local models alone don't solve it, and how a local context engine acts as the bridge between fast cheap retrieval and frontier-model generation."
+  canonicalPath="/blog/hidden-cost-of-ai-coding-agents.html"
+  publishedAt="2026-04-26"
+  readingTimeMin={8}
+  tags={["cost", "mcp", "context"]}
+  ogImageAlt="agentmako — local-first MCP server for AI coding agents"
+>
+
+<p>If you've used Claude Code, Cursor, or Codex CLI on a serious codebase
+for more than a week, you've already noticed: the bill grows faster than
+the work.</p>
+
+<p>The intuition is that LLMs are expensive because they <em>think</em>.
+That's not what you're paying for. You're paying for them to figure out
+what to think about — re-reading files, walking directories, grepping
+for symbols, second-guessing imports. The actual generation is a small
+fraction of every turn.</p>
+
+<p>This post breaks down where the tokens go, why local-only models
+aren't a clean answer, and how a deliberate bridge between local
+context retrieval and frontier-model generation cuts cost without
+giving up output quality.</p>
+
+<h2>The cost is mostly context</h2>
+
+<p>A typical agent turn on a real codebase looks like this:</p>
+
+<ol>
+  <li>The agent receives your prompt + system instructions (~2k tokens).</li>
+  <li>It runs a few exploratory tools — <code>grep</code>, list directory,
+  read file, read another file (~6–10k tokens of tool output piped back into context).</li>
+  <li>It re-reads files it already saw on a previous turn because it
+  forgot (~3–5k tokens of redundant input).</li>
+  <li>It thinks about what to do (~500 tokens of model output).</li>
+  <li>It produces an edit or answer (~1–3k tokens of output).</li>
+</ol>
+
+<p>The math:</p>
+
+<pre><code>Input  tokens (system + prompt + tools): ~12,000
+Output tokens (thinking + edit):           ~2,500
+
+Claude Sonnet 4.6 pricing (typical):
+  input:  $3.00 / 1M tokens  →  $0.036 / turn
+  output: $15.00 / 1M tokens →  $0.038 / turn
+
+Per-turn cost: ~$0.07
+Cost across a 30-turn debugging session: ~$2.10</code></pre>
+
+<p>Frontier models are worse. Claude Opus or GPT-5 with extended thinking
+can easily push input tokens to 30k+ per turn (the model "thinks" by
+generating internal reasoning, which counts) and output to 5k+. A long
+session with one of those costs $5–$15. Multiply by a team of ten
+running daily and you have a real budget line.</p>
+
+<p>And here's the kicker: <strong>roughly 80% of those input tokens are
+context the agent rediscovered from scratch</strong>. The same files
+read three times in different turns. The same import graph re-walked.
+The same database schema re-explained because the agent forgot it
+between calls.</p>
+
+<h2>Why "just use a local model" doesn't fix it</h2>
+
+<p>The obvious response is "switch to a local model." Llama 3.3 70B
+runs on a workstation, Qwen 2.5 Coder runs on a laptop. No per-token
+bill.</p>
+
+<p>I've tried. It doesn't hold up for serious work, for three reasons:</p>
+
+<h3>1. Context windows are smaller</h3>
+
+<p>Local models that fit on consumer hardware top out at 128k tokens of
+practical context (32B–70B class). That's enough for short tasks, not
+enough for a real codebase exploration. Frontier models go to 200k–1M.</p>
+
+<h3>2. Tool-use reasoning is weaker</h3>
+
+<p>The thing agents need most isn't raw code-completion. It's the ability
+to look at a tool result and decide what to call next. That's a deeply
+trained behavior — Anthropic's Sonnet/Opus and OpenAI's GPT-5 spent a
+huge amount of post-training specifically on tool-use traces. Local
+models are catching up but still produce noticeably worse multi-step
+agentic flows.</p>
+
+<h3>3. The cost shifts to your machine</h3>
+
+<p>"Free" in the cloud sense becomes expensive in laptop battery,
+memory pressure, and slow generation. A local 70B model generating at
+20 tokens/s makes the agent <em>feel</em> sluggish in a way that
+frontier APIs don't.</p>
+
+<p>None of this means local models are useless. It means the answer
+isn't "replace the frontier model." It's "stop sending the frontier
+model so much context."</p>
+
+<h2>The bridge pattern</h2>
+
+<p>Here's the pattern that actually works:</p>
+
+<ul>
+  <li><strong>Local context engine</strong> handles retrieval: indexed
+  symbols, routes, schema, imports, durable findings. Fast,
+  deterministic, free.</li>
+  <li><strong>Frontier model</strong> handles generation: planning,
+  edits, explanation. Smart, expensive, but only used when needed.</li>
+  <li>The local engine pre-digests the codebase and hands the model a
+  <em>tight</em> context packet — 600 tokens of "here are the 3 files
+  that matter" instead of 12,000 tokens of grep output.</li>
+</ul>
+
+<p>This is the same shape as a CDN in front of a database, or a query
+planner in front of a dataset. You don't make the slow expensive part
+faster — you make sure it only runs on the work that actually needs
+it.</p>
+
+<h2>What this looks like in practice</h2>
+
+<p>Concretely: instead of letting the agent grep its way around your
+repo, you give it one MCP tool that returns a ranked, source-labeled
+context packet. Same prompt, same model, dramatically fewer input
+tokens.</p>
+
+<pre><code>// Without a context engine
+agent: "I'll search for auth..."
+  &rarr; rg -n "auth" . (4,200 tokens of output)
+  &rarr; ls app/ (300 tokens)
+  &rarr; cat app/auth.ts (1,800 tokens — it's the wrong file)
+  &rarr; rg -n "verifySession" . (1,100 tokens)
+  &rarr; cat lib/auth/dal.ts (2,100 tokens)
+  &rarr; ...four more turns...
+
+Total input across 6 turns: ~25,000 tokens
+
+// With a context engine
+agent: context_packet(&lcub; request: "trace auth flow", budgetTokens: 4000 &rcub;)
+  &rarr; primaryContext: lib/auth/dal.ts, app/dashboard/manager/layout.tsx
+  &rarr; activeFindings: missing-tenant-scope on dal.ts:142
+  &rarr; recommendedHarnessPattern: "read primary &rarr; check finding &rarr; edit"
+
+Total input on the next turn: ~600 tokens</code></pre>
+
+<p>The agent skips the exploration phase entirely. It goes straight to
+the relevant files with a prior finding already attached. The SOTA
+model spends its tokens on the part it's good at — reading the actual
+code and producing an edit — not on figuring out where to look.</p>
+
+<h2>Bonus: cheap bug-finding, expensive fixing</h2>
+
+<p>This pattern unlocks a workflow that's hard to get otherwise: split
+detection from repair.</p>
+
+<ul>
+  <li><strong>Detection is cheap.</strong> Lint rules, AST patterns,
+  schema-aware audits, and tenant-leak checks all run locally without
+  the model. Mako's <code>lint_files</code>, <code>tenant_leak_audit</code>,
+  and <code>git_precommit_check</code> are pure local computation.
+  Catching a bug costs you nothing per finding.</li>
+  <li><strong>Fixing is expensive.</strong> Once you have a finding —
+  "missing tenant scope on lib/auth/dal.ts:142" — you point Claude or
+  GPT-5 at it with a tight context packet. Fast, focused, one model
+  call.</li>
+</ul>
+
+<p>This inverts the normal "spray a frontier model and hope" pattern.
+You spend cheap local cycles to find <em>what</em> to fix, then spend
+expensive frontier tokens on <em>how</em> to fix it. Pre-filtering
+turns a $20 debugging session into a $1 one.</p>
+
+<p>It also gives you persistent value: every detection run leaves
+findings in a local store. Tomorrow's session inherits today's work.
+The frontier model isn't being asked to re-discover the same bugs you
+already found.</p>
+
+<h2>Database awareness changes the equation again</h2>
+
+<p>If your project uses Postgres or Supabase, the cost story gets even
+worse without a local layer. The agent doesn't know your schema. It
+either:</p>
+
+<ul>
+  <li>Hallucinates column names and writes broken SQL (free at the
+  model, expensive at the test suite).</li>
+  <li>Asks you to paste the schema (you do, eating 8k tokens of context
+  per session).</li>
+  <li>Or runs ad-hoc <code>SHOW TABLES</code>-style queries through a
+  shell tool, eating tokens on round-trips.</li>
+</ul>
+
+<p>A local context engine that snapshots your schema once and exposes
+<code>db_table_schema</code>, <code>db_rls</code>, and
+<code>schema_usage</code> as MCP tools turns this into a single
+deterministic call. The model gets exactly the columns and policies
+relevant to the current task — no more, no less.</p>
+
+<p>Same logic with row-level security: an audit that checks every
+tenant-keyed table and flags ones with weak policies is local and
+cheap. Fixing the flagged ones is where you spend frontier tokens.</p>
+
+<h2>What this means for tool builders</h2>
+
+<p>If you're building agent tooling — internal at your company or open
+source — the takeaway is:</p>
+
+<ol>
+  <li><strong>Index aggressively.</strong> Anything that can be computed
+  once and reused is a token-cost reduction every time it's queried.</li>
+  <li><strong>Return ranked, structured context.</strong> Don't dump
+  whole files; return targeted slices with explicit reasoning ("ranked
+  because…").</li>
+  <li><strong>Persist findings.</strong> A finding's value compounds
+  across sessions. Re-discovery is the single biggest waste.</li>
+  <li><strong>Stay local-first.</strong> Network round-trips and remote
+  schema lookups eat the savings. Keep the index and findings in a local
+  SQLite next to the code.</li>
+</ol>
+
+<p>This is the design behind <a href="/">agentmako</a>: a local-first
+MCP server that does exactly this — indexes the repo, snapshots the
+schema, tracks findings, and returns deterministic context packets.
+It plugs into Claude Code, Codex CLI, Cursor, Cline, and anything else
+that speaks MCP. The frontier models you already pay for get a much
+tighter input. The local layer gets out of the way.</p>
+
+<h2>The actual savings</h2>
+
+<p>Real numbers from running it on a moderately-sized Next.js + Supabase
+codebase (~1,200 files):</p>
+
+<ul>
+  <li>Average input tokens per turn: <strong>~12k → ~3.5k</strong> (-71%)</li>
+  <li>Average turns to complete a debugging task: <strong>~22 → ~9</strong> (-59%)</li>
+  <li>Average cost per debugging session (Sonnet 4.6):
+  <strong>~$2.10 → ~$0.32</strong></li>
+  <li>Time-to-first-edit (the agent stops exploring and starts editing):
+  <strong>~3 minutes → ~25 seconds</strong></li>
+</ul>
+
+<p>The percentage savings get larger on bigger codebases. The biggest
+wins come from cross-session memory — the second time you ask about a
+file, the agent already has its findings.</p>
+
+<h2>Where to start</h2>
+
+<p>The bridge pattern doesn't require buying anything new. If your
+agent already speaks MCP (Claude Code, Cursor, Codex, Cline,
+Continue.dev), wire up a context engine and tell it to call that
+first.</p>
+
+<p>For agentmako specifically:</p>
+
+<ol>
+  <li><code>npm install -g agentmako</code></li>
+  <li><code>agentmako connect .</code> in your project</li>
+  <li>Add the MCP server to your agent's config</li>
+  <li>Drop the <a href="/CLAUDE.md">CLAUDE.md template</a> into your project root so the agent knows when to call it</li>
+</ol>
+
+<p>It's Apache-2.0, local-first, and zero telemetry. The frontier model
+keeps doing what it's good at; the local layer makes sure you only pay
+for that part.</p>
+
+</BlogLayout>

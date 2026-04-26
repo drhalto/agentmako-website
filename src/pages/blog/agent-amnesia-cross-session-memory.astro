@@ -1,0 +1,346 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="Your AI coding agent has amnesia. Here's how to fix it."
+  description="Every Claude Code or Cursor session starts from zero. The agent re-greps the same files, re-runs the same lint checks, re-debates the same finding you already reviewed. Persistent findings — a local fact store the agent reads at startup — kills the loop."
+  canonicalPath="/blog/agent-amnesia-cross-session-memory.html"
+  publishedAt="2026-04-26"
+  readingTimeMin={9}
+  tags={["memory", "reef-engine", "mcp"]}
+  ogImageAlt="agentmako — durable findings and facts for AI coding agents"
+>
+
+<p>You opened Claude Code Tuesday afternoon. After 20 minutes of
+exploration, the agent finally surfaced a real bug: your auth callback
+was missing a tenant scope check on <code>resolveManagerScope</code>
+at <code>lib/auth/dal.ts:142</code>. You filed it. You shipped the
+fix.</p>
+
+<p>Wednesday morning you start a new session. You ask the agent about
+something completely unrelated. Twenty minutes in, it's wandering
+through the auth code again — and 15 turns later, it surfaces the
+exact same finding. You already fixed that one. The agent has no idea.</p>
+
+<p>This is the amnesia problem. Every agent session starts from zero.
+The work the agent did yesterday — the files it scanned, the lint
+findings it produced, the audits it ran — vanishes the moment the
+chat closes. You pay for that work twice. Three times. Forever.</p>
+
+<p>This post is about why that happens, why "just remember in
+<code>CLAUDE.md</code>" doesn't scale, and what a real persistence
+layer looks like — including the compounding payoffs you only get
+once findings outlive sessions.</p>
+
+<h2>The cost of amnesia, in turns</h2>
+
+<p>Every agent session has a discovery phase before it can do useful
+work. On a real codebase, that phase is roughly:</p>
+
+<ol>
+  <li>Read repo structure (<code>ls</code>, <code>tree</code>, or a
+  <code>repo_map</code> tool).</li>
+  <li>Identify which files are relevant to the current task.</li>
+  <li>Run any diagnostics that haven't been run yet (lint, type-check,
+  audit).</li>
+  <li>Read the active findings on those files.</li>
+  <li>Start working.</li>
+</ol>
+
+<p>Without persistence, every step except #1 is redundant. You ran
+diagnostics last session. You identified the relevant files last
+session. You read the findings last session. The agent doesn't know
+any of that, so it re-does it.</p>
+
+<p>The cost compounds across sessions:</p>
+
+<pre><code>Session 1: 20 turns of exploration → 5 turns of work
+Session 2: 20 turns of exploration → 5 turns of work
+Session 3: 20 turns of exploration → 5 turns of work
+
+Total exploration cost: 60 turns
+Total productive work:  15 turns
+
+If exploration carried over: 20 + 5 + 5 + 5 = 35 turns total.</code></pre>
+
+<p>You pay for exploration once if your agent has memory. You pay for
+it every time if it doesn't.</p>
+
+<p>And it's not just the dollar cost. Re-discovery is slow. The
+"open laptop, ask question, wait three minutes for the agent to find
+its bearings" pattern is one of the worst feelings in modern
+development. It's why a lot of teams give up on agent workflows after
+two weeks — the friction front-loads every session.</p>
+
+<h2>Three things that get lost without persistence</h2>
+
+<h3>1. Diagnostic results</h3>
+
+<p>You ran <code>typescript_diagnostics</code> on the
+<code>app/dashboard/</code> tree yesterday. It produced 8 findings, 6
+of which you fixed. The other 2 are real, you just haven't gotten to
+them.</p>
+
+<p>Today's session: the agent has no idea those findings exist. To
+know that <code>app/dashboard/manager/layout.tsx</code> has an open
+issue, it has to re-run TSC. Same compute, same output, same 30
+seconds of waiting.</p>
+
+<h3>2. Audit results</h3>
+
+<p>Worse: audits with side effects (or just slow audits). A
+<code>tenant_leak_audit</code> across a 47-table Postgres schema
+takes real time. Running it yesterday produced a list of flagged
+tables. Without persistence, you either run it again every session
+(slow, expensive) or forget about it (dangerous).</p>
+
+<h3>3. Intentional decisions</h3>
+
+<p>This is the worst loss. You looked at a finding yesterday and
+decided <em>"this is intentional — the unused export is part of our
+public SDK surface, leave it."</em> You moved on.</p>
+
+<p>Today the agent re-runs the lint, sees the same finding, and
+helpfully suggests removing the export. You explain again. You write
+the same justification again. Every session, the same conversation.</p>
+
+<p>The agent isn't dumb. It just has no record of what humans (or it,
+in a previous turn) already decided was intentional. The signal is
+real; the agent has no way to keep it.</p>
+
+<h2>Why <code>CLAUDE.md</code> doesn't solve it</h2>
+
+<p>The natural first instinct is "put it in <code>CLAUDE.md</code>."
+That works for project rules ("we use TypeScript strict mode,
+follow this auth pattern") but breaks down for findings:</p>
+
+<ul>
+  <li><strong>Findings are too specific to fit.</strong> "On
+  <code>lib/auth/dal.ts:142</code>, the missing tenant scope is
+  intentional because…" is one finding. There are dozens. CLAUDE.md
+  becomes unreadable.</li>
+  <li><strong>Findings drift with the code.</strong> Line 142 today
+  isn't line 142 after a refactor. CLAUDE.md doesn't follow code
+  motion.</li>
+  <li><strong>The agent has to read CLAUDE.md every turn.</strong>
+  Token cost. The longer it gets, the more you pay every prompt.</li>
+  <li><strong>It's append-only by convention.</strong> Stale entries
+  build up. There's no expiration mechanism, no
+  finding-was-fixed-and-now-it-shouldn't-be-suppressed-anymore logic.</li>
+</ul>
+
+<p>CLAUDE.md is great for "how to think about this project." It's bad
+for "what we already discovered about this project."</p>
+
+<h2>What persistence actually requires</h2>
+
+<p>A real persistence layer for agent findings needs five things, each
+of which CLAUDE.md misses:</p>
+
+<ol>
+  <li><strong>Stable identity.</strong> A finding has to survive code
+  edits without becoming a "new" finding. Identity should be based on
+  the rule + file + a structural anchor (function name, AST node), not
+  line numbers.</li>
+  <li><strong>Lifecycle states.</strong> A finding starts open. It can
+  be resolved, suppressed (with a reason), or stale. The store knows
+  the difference.</li>
+  <li><strong>Ack semantics.</strong> "We reviewed this and decided
+  it's intentional" is a real action with provenance. Who acked, why,
+  when. Different from "we ignored it."</li>
+  <li><strong>Auto-revoke on structural change.</strong> If the code
+  the ack was attached to changes structurally, the ack should
+  auto-revoke — forcing a re-review instead of silently hiding a new
+  bug that snuck in during a refactor.</li>
+  <li><strong>Freshness.</strong> Every fact should know whether it's
+  current, stale (file changed since), contradicted (a newer fact
+  disagrees), or unknown.</li>
+</ol>
+
+<p>None of this is exotic. It's the same model your issue tracker uses
+to keep tickets alive across edits — except scoped to programmatic
+findings the agent can read in 50ms instead of paginated through a
+web UI.</p>
+
+<h2>The shape of a fact store</h2>
+
+<p>Concretely, what a stored fact looks like:</p>
+
+<pre><code>&lcub;
+  factId: "fact_01H8K2…",
+  subjectKind: "file",
+  subjectId: "lib/auth/dal.ts",
+  kind: "exports",
+  value: &lcub; name: "verifySession", kind: "function" &rcub;,
+  sourceTool: "project_index_refresh",
+  indexedAt: "2026-04-26T15:14:02Z",
+  fileHash: "a1c2…",
+  freshness: "fresh_indexed"
+&rcub;</code></pre>
+
+<p>And a stored finding:</p>
+
+<pre><code>&lcub;
+  findingId: "find_01H8K2…",
+  code: "auth/missing-tenant-scope",
+  severity: "warn",
+  subjectKind: "file",
+  subjectId: "lib/auth/dal.ts",
+  line: 142,
+  identity: &lcub;
+    matchBasedId: "auth/missing-tenant-scope:lib/auth/dal.ts:resolveManagerScope",
+    ruleId: "auth/missing-tenant-scope"
+  &rcub;,
+  status: "open",
+  ack: null,
+  createdAt: "2026-04-26T15:14:02Z",
+  lastSeenAt: "2026-04-26T15:14:02Z"
+&rcub;</code></pre>
+
+<p>The interesting field is <code>identity.matchBasedId</code>. It's
+not a hash of the line content. It's a structural anchor — the rule
+ID + file + the function the finding lives inside. Reformat the file,
+the line moves, the anchor stays. Same finding, same id, same ack
+attached.</p>
+
+<p>Rename <code>resolveManagerScope</code> to
+<code>requireManagerScope</code> — that's a structural change. The
+match-based id no longer matches. The ack auto-revokes. The next agent
+session sees an open finding again and has to re-decide whether the
+intentional-pattern still applies. That's not a bug; that's the design.
+Stale acks are how you smuggle a real bug past your own audit.</p>
+
+<h2>What this unlocks for the agent</h2>
+
+<p>Once findings persist, the agent's startup looks completely
+different. Instead of:</p>
+
+<pre><code>turn 1: "Let me look at the repo..."
+turn 2: rg -n "manager onboarding"
+turn 3: ls app/api/manager
+turn 4: cat app/api/manager/onboarding/route.ts
+turn 5: cat lib/auth/dal.ts
+turn 6: rg -n "verifySession"
+turn 7: ...</code></pre>
+
+<p>It's:</p>
+
+<pre><code>turn 1: project_open_loops()
+  → 3 unresolved findings, including:
+    "auth/missing-tenant-scope on lib/auth/dal.ts:resolveManagerScope"
+
+turn 2: reef_inspect(&lcub; subjectId: "lib/auth/dal.ts" &rcub;)
+  → Last reviewed yesterday. 1 finding open. 1 ack: "module exports any
+    types intentionally — SDK boundary."
+
+turn 3: ...starts work...</code></pre>
+
+<p>Three turns instead of seven. And turn 1 carries information no
+amount of grep would surface — the auto-revoke ledger telling you
+which intentional patterns are still trusted vs. which need a
+re-review after recent changes.</p>
+
+<h2>The compounding payoff</h2>
+
+<p>The first session with persistence costs the same as a session
+without. You're indexing the codebase, running diagnostics, building
+findings — that work has to happen.</p>
+
+<p>The second session is where it pays off. The agent reads
+<code>project_open_loops</code> and gets yesterday's unresolved work
+plus today's freshness deltas. Total cost: one tool call, ~600 tokens.</p>
+
+<p>By the tenth session, the value is enormous. The store has:</p>
+
+<ul>
+  <li>Findings spanning weeks of agent + human review.</li>
+  <li>Acks from the team on intentional patterns, with reasons.</li>
+  <li>A history of which diagnostic runs caught what, and when.</li>
+  <li>Auto-revoked acks pointing at recent refactors that need fresh
+  attention.</li>
+</ul>
+
+<p>That's a real institutional memory the agent contributes to and
+draws from. Onboarding a new teammate? Their first agent session
+inherits everyone's prior reviews. Switching projects? Reef state
+persists per-project; the new project's agent session starts with
+that project's history, not the wrong one.</p>
+
+<h2>Where persistence hurts (be honest about it)</h2>
+
+<p>Three places where persistent findings can mislead, worth knowing:</p>
+
+<h3>Stale acks during big refactors</h3>
+
+<p>The auto-revoke heuristic is good but not perfect. A heavy refactor
+that changes a lot of structural anchors at once can revoke acks the
+team intended to keep. Run <code>finding_acks_report</code> after
+big refactors and re-ack what should still be acked.</p>
+
+<h3>Drift between findings and reality</h3>
+
+<p>If a diagnostic source's rules change (you upgraded ESLint), old
+findings might not match new ones one-to-one. Same code, slightly
+different finding shape. The store doesn't auto-resolve this — you
+need to re-run the diagnostic and let the new findings replace the
+old.</p>
+
+<h3>Acking to silence noise</h3>
+
+<p>The biggest failure mode. Acks are meant to be reviewed
+intentional decisions. If the team starts acking findings just to
+make the dashboard quieter, you've inverted the value: now the store
+is hiding signal, not preserving it. Use
+<code>finding_acks_report</code> periodically to audit who acked what
+and why. If the reasons are thin, treat that as a process problem.</p>
+
+<h2>What you actually need to wire up</h2>
+
+<p>For agentmako specifically — and this is the shape any persistent
+findings layer should take:</p>
+
+<ol>
+  <li>A local SQLite store, per-project, under
+  <code>.mako-ai/</code>. No hosted service.</li>
+  <li>An MCP server that exposes read tools (<code>file_findings</code>,
+  <code>project_findings</code>, <code>project_open_loops</code>,
+  <code>verification_state</code>, <code>reef_inspect</code>) and ack
+  tools (<code>finding_ack</code>, <code>finding_ack_batch</code>).</li>
+  <li>A CLAUDE.md / AGENTS.md instruction telling the agent to call
+  <code>project_open_loops</code> at the start of every session and
+  <code>file_findings</code> before editing any file.</li>
+  <li>Optionally, commit <code>.mako-ai/</code> to git so the team
+  shares findings — or .gitignore it if Reef state is per-developer.</li>
+</ol>
+
+<p>That's it. Once the store has a few sessions of history, the
+compounding kicks in. The agent stops starting from zero. The team
+stops re-explaining the same intentional patterns. The cost per
+session drops, and the institutional memory grows.</p>
+
+<h2>The shift</h2>
+
+<p>Most agent tooling discussions focus on the model: which Claude
+version, which prompt, which system message. Those matter. But the
+larger lever — the one that compounds across sessions instead of
+saving 5% per turn — is whether the work the agent does today is
+still available tomorrow.</p>
+
+<p>An agent without persistence is a fresh hire every morning. They
+re-learn the codebase, re-discover the bugs, re-debate the
+intentional patterns. Productive eventually, but starting from zero
+every day.</p>
+
+<p>An agent with persistence is the same teammate every morning. They
+remember what they (and you) decided yesterday. They flag what's new
+without re-flagging what's old. They get faster, not slower, the
+longer they're around.</p>
+
+<p>That's the difference Reef makes in
+<a href="/">agentmako</a> — and it's the difference any agent tool
+needs to make the leap from "interesting demo" to "actually useful
+on a real codebase." Apache-2.0, local-first, no hosted service.
+Drop it in, run it for a week, watch your second session feel
+different from your first.</p>
+
+</BlogLayout>

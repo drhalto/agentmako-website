@@ -1,0 +1,98 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Database tools — db_table_schema, db_rls, tenant_leak_audit · agentmako"
+  description="The database cluster — db_table_schema, db_rls, db_rpc, schema_usage, tenant_leak_audit. Postgres / Supabase awareness for AI coding agents, read-only by default."
+  canonicalPath="/docs/tools/database.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Tools", "href": "/docs/tools/"}, {"name": "Database", "href": "/docs/tools/database.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Tools &middot; Database</span>
+    <h1 style="margin-top:1rem;"><em>Database</em> tools (Postgres / Supabase)</h1>
+    <p class="doc-hero__sub">
+      Live schema, RLS, and RPC introspection. Read-only by default —
+      mutations write only to Mako's local store unless explicitly
+      stated. Connect with <code>agentmako connect .</code>; secrets
+      live in your OS keychain.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <article id="db_ping">
+        <h2><code>db_ping</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Verify database connectivity. Quick sanity check after wiring up a new connection.</p>
+      </article>
+
+      <article id="db_table_schema">
+        <h2><code>db_table_schema</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Columns, indexes, constraints, foreign keys, RLS state, triggers — for one table.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "schema": "public", "table": "organizations" &rcub;</code></pre>
+        <p>The first call before editing or migrating a table.</p>
+      </article>
+
+      <article id="db_columns">
+        <h2><code>db_columns</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Columns and primary-key details for one table. Lighter than <code>db_table_schema</code> when you don't need triggers/FKs.</p>
+      </article>
+
+      <article id="db_fk">
+        <h2><code>db_fk</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Inbound and outbound foreign keys for a table. Useful for "what depends on this table?" questions.</p>
+      </article>
+
+      <article id="db_rls">
+        <h2><code>db_rls</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Inspect RLS state and policies for one table. Returns policy bodies — read these before changing auth-sensitive code.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "schema": "public", "table": "manager_district" &rcub;</code></pre>
+      </article>
+
+      <article id="db_rpc">
+        <h2><code>db_rpc</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Function signature, return shape, security mode, and source body for a Postgres function or Supabase RPC.</p>
+        <h3>When to use it</h3>
+        <p>Before calling a <code>SECURITY DEFINER</code> RPC from new code — RPC behavior is not always obvious from the call site.</p>
+      </article>
+
+      <article id="schema_usage">
+        <h2><code>schema_usage</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Find where a schema object is defined and referenced in app code (Supabase <code>.from()</code>, raw SQL strings, RPC calls).</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "schema": "public", "object": "organizations" &rcub;</code></pre>
+        <p>Use before migrating a table to find every code site that needs updating.</p>
+      </article>
+
+      <article id="tenant_leak_audit">
+        <h2><code>tenant_leak_audit</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Audit tenant-keyed tables, RLS posture, RPC touch points, and route handlers for cross-tenant leakage risks.</p>
+        <h3>When to use it</h3>
+        <p>After adding a new tenant-scoped table, after migrations that change RLS, or as a periodic security pass.</p>
+      </article>
+
+      <article id="db_reef_refresh">
+        <h2><code>db_reef_refresh</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
+        <p>Replace Reef DB facts from the current schema snapshot. Mutates only Mako's local store.</p>
+        <h3>When to use it</h3>
+        <p>After schema migrations, Supabase type regeneration, or any DDL change.</p>
+      </article>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="../recipes/database-aware-edits.html">How to make AI agents schema-aware (Postgres / Supabase)</a></li>
+          <li><a href="../recipes/auth-flow-tracing.html">How to trace an auth flow</a></li>
+          <li><a href="../faq.html#supabase">FAQ: does agentmako support Supabase?</a></li>
+          <li><a href="../faq.html#privacy">FAQ: does agentmako send my code anywhere?</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

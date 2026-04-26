@@ -1,0 +1,139 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="Context tools — context_packet, reef_scout, tool_batch · agentmako"
+  description="The context cluster — context_packet, reef_scout, reef_inspect, evidence_confidence, tool_batch. The first tools any AI coding agent should reach for."
+  canonicalPath="/docs/tools/context.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Tools", "href": "/docs/tools/"}, {"name": "Context", "href": "/docs/tools/context.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Tools &middot; Context</span>
+    <h1 style="margin-top:1rem;"><em>Context</em> tools</h1>
+    <p class="doc-hero__sub">
+      The first tools any agent should reach for. They turn vague
+      requests into ranked, source-labeled context — instead of grepping
+      blind. All read-only.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <article class="doc-body" style="max-width: 78ch;">
+
+      <article id="context_packet">
+        <h2><code>context_packet</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Turn a messy coding request into ranked, source-labeled
+        context using deterministic providers first.</p>
+        <h3>When to use it</h3>
+        <p>The first call for any vague task. "debug auth onboarding",
+        "where does X live?", "review impact of changing Y" — start
+        here.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "request": "debug why manager onboarding role checks are failing",
+  "focusFiles": ["lib/auth/dal.ts"],   // optional
+  "includeInstructions": true,
+  "includeRisks": true,
+  "includeLiveHints": true,
+  "freshnessPolicy": "prefer_fresh",
+  "budgetTokens": 4000
+&rcub;</code></pre>
+        <h3>Output (abridged)</h3>
+        <pre><code>&lcub;
+  "primaryContext":  [&lcub; "path": "...", "reason": "...", "score": 0.91 &rcub;, ...],
+  "relatedContext":  [...],
+  "activeFindings":  [...],
+  "risks":           [...],
+  "scopedInstructions": [...],
+  "recommendedHarnessPattern": "...",
+  "expandableTools": ["route_trace", "db_rls", "reef_inspect"]
+&rcub;</code></pre>
+        <h3>Related</h3>
+        <p><code>reef_scout</code> for broader fact/finding scout. <code>reef_inspect</code> for one-file deep dive. See <a href="../concepts/context-packets.html">What is a context packet?</a> for the full shape.</p>
+      </article>
+
+      <article id="reef_scout">
+        <h2><code>reef_scout</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Reef-backed scout packet of facts, findings, rules, and
+        diagnostic candidates for a request.</p>
+        <h3>When to use it</h3>
+        <p>When the question is "what does Mako already know about
+        this?" rather than "what files are relevant?". Heavier on durable
+        Reef data than <code>context_packet</code>.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "request": "audit auth boundaries before refactor",
+  "limit": 30
+&rcub;</code></pre>
+        <h3>Output</h3>
+        <pre><code>&lcub;
+  "facts":           [...],
+  "findings":        [...],
+  "rules":           [...],
+  "diagnosticCandidates": [...]
+&rcub;</code></pre>
+      </article>
+
+      <article id="reef_inspect">
+        <h2><code>reef_inspect</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Explain one file or subject fingerprint with its facts,
+        findings, and relevant diagnostic runs.</p>
+        <h3>When to use it</h3>
+        <p>Before editing a sensitive file. Returns the full evidence
+        trail Reef has for that subject — what's known, what's
+        questioned, what's been acked.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "subjectKind": "file",
+  "subjectId":   "lib/auth/dal.ts"
+&rcub;</code></pre>
+      </article>
+
+      <article id="evidence_confidence">
+        <h2><code>evidence_confidence</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Label evidence as verified, fresh, stale, fuzzy, historical,
+        contradicted, or unknown.</p>
+        <h3>When to use it</h3>
+        <p>When you've pulled a fact or finding and want to know whether
+        you can trust it. Drives the freshness model — see
+        <a href="../concepts/freshness.html">How agentmako tracks freshness</a>.</p>
+      </article>
+
+      <article id="tool_batch">
+        <h2><code>tool_batch</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Run independent read-only Mako lookups in one labeled
+        request. Reduces MCP round trips.</p>
+        <h3>When to use it</h3>
+        <p>When you want freshness, conventions, and open loops in one
+        call. <code>tool_batch</code> rejects mutation tools (no
+        <code>project_index_refresh</code>, <code>working_tree_overlay</code>,
+        <code>diagnostic_refresh</code>, <code>db_reef_refresh</code>,
+        <code>finding_ack</code>, or <code>finding_ack_batch</code>).</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "verbosity": "compact",
+  "continueOnError": true,
+  "ops": [
+    &lcub; "label": "freshness", "tool": "project_index_status", "args": &lcub; "includeUnindexed": false &rcub; &rcub;,
+    &lcub; "label": "auth-conventions", "tool": "project_conventions", "args": &lcub; "limit": 20 &rcub; &rcub;,
+    &lcub; "label": "open-loops", "tool": "project_open_loops", "args": &lcub; "limit": 20 &rcub; &rcub;
+  ]
+&rcub;</code></pre>
+      </article>
+
+      <section id="related">
+        <h2>Related</h2>
+        <ul>
+          <li><a href="../concepts/context-packets.html">What is a context packet?</a></li>
+          <li><a href="../concepts/reef-engine.html">What is the Reef Engine?</a></li>
+          <li><a href="./reef.html">Reef tools</a></li>
+          <li><a href="./code-intel.html">Code intelligence tools</a></li>
+        </ul>
+      </section>
+
+    </article>
+  </div>
+</section>
+</DocLayout>

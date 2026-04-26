@@ -1,0 +1,262 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="agentmako dashboard — local web UI · agentmako"
+  description="The agentmako dashboard is a local Vite + React app that talks to the agentmako HTTP API. Browse projects, run tools, inspect Reef state, and chat with the harness — all in your browser, all on localhost."
+  canonicalPath="/docs/dashboard.html"
+  ogImage="/assets/og.png"
+  ogType="article"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Dashboard", "href": "/docs/dashboard.html"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Reference &middot; Dashboard</span>
+  <h1>The local <em>dashboard</em></h1>
+  <p class="doc-hero__sub">
+    <strong>agentmako ships an optional local web dashboard</strong> — a
+    Vite + React app that talks to the same HTTP API the MCP server
+    uses. Browse projects, run tools, inspect Reef state, and chat with
+    the harness in a browser tab. It's local-only: no hosted service,
+    no auth tokens, no remote access.
+  </p>
+</header>
+
+<section class="section">
+  <div class="container">
+    <div class="doc-content">
+      <article class="doc-body" style="max-width: 78ch;">
+
+        <section id="when">
+          <h2 data-step="01">When to use it</h2>
+          <p>The dashboard isn't required — the MCP server and CLI cover
+          most workflows. Reach for it when:</p>
+          <ul>
+            <li>You want a visual view of <strong>Reef state</strong> —
+            findings, facts, freshness — without paging through CLI
+            output.</li>
+            <li>You're <strong>onboarding to a new project</strong> and
+            want to skim its symbols/routes/schema in one place.</li>
+            <li>You're <strong>debugging a tool</strong> and want to call
+            it with a UI form instead of crafting JSON.</li>
+            <li>You want a <strong>chat interface</strong> with full
+            tool-call timelines, artifact rendering, and approval
+            modals — without integrating an external agent harness.</li>
+          </ul>
+
+          <p>If you're already happy in Claude Code / Cursor / Codex,
+          you can ignore the dashboard entirely. It's a complement, not
+          a replacement.</p>
+        </section>
+
+        <section id="run">
+          <h2 data-step="02">Running the dashboard</h2>
+          <p>Two pieces need to be up: the local HTTP API server, and
+          the Vite dev/build output the dashboard is served from.</p>
+
+          <h3>The bundled command</h3>
+          <p>From any attached project:</p>
+          <pre><code>agentmako dashboard</code></pre>
+
+          <p>Under the hood this:</p>
+          <ol>
+            <li>Starts the local HTTP API service (<code>agentmako serve</code>) on a free port.</li>
+            <li>Serves the dashboard's pre-built static bundle from the same port.</li>
+            <li>Opens your default browser at <code>http://127.0.0.1:&lt;port&gt;</code>.</li>
+          </ol>
+
+          <p>Common flags:</p>
+          <ul>
+            <li><code>--port 4830</code> — pin the API + dashboard to a specific port.</li>
+            <li><code>--no-open</code> — skip the browser launch (useful in CI / remote shells).</li>
+            <li><code>--project PATH</code> — start with a specific project selected.</li>
+          </ul>
+
+          <h3>API only (no UI)</h3>
+          <p>If you just want the HTTP API for scripting:</p>
+          <pre><code>agentmako serve --port 4830</code></pre>
+          <p>Then GET <code>http://127.0.0.1:4830/api/v1/health</code> to check it's up. The
+          dashboard is just one HTTP client of this API.</p>
+        </section>
+
+        <section id="tour">
+          <h2 data-step="03">Tour of the dashboard</h2>
+          <p>The sidebar lists every page; here's what each is for.</p>
+
+          <h3>Home</h3>
+          <p>Project picker plus a per-project status card — freshness
+          counts, recent activity, attached database, configured
+          provider. The fastest way to confirm "I'm pointed at the right
+          project."</p>
+
+          <h3>Agent</h3>
+          <p>A chat interface. Same backend the CLI <code>chat</code>
+          command uses, but with full tool-call cards (read/mutation
+          badge, structured input/output), workflow packet rendering,
+          and an approval modal for permission-gated actions. Sessions
+          persist; <code>Resume</code> picks up where you left off.</p>
+
+          <h3>Tools</h3>
+          <p>Browse the full tool registry by category. Each tool has a
+          form derived from its input schema — fill in arguments, click
+          run, see the response rendered with syntax highlighting. A
+          fast way to learn a tool without writing JSON by hand.</p>
+
+          <h3>Search</h3>
+          <p>Run <code>cross_search</code> / <code>live_text_search</code>
+          from a UI with result grouping (code chunks, schema, RPCs,
+          routes, memories). Click a result to jump to the file or
+          subject.</p>
+
+          <h3>Memory</h3>
+          <p>The harness's user-curated memory store — separate from
+          Reef facts/findings. Add notes, recall by tag, list across
+          projects.</p>
+
+          <h3>Providers</h3>
+          <p>Add/remove model providers (Anthropic, OpenAI, Ollama, LM
+          Studio, etc.), test connections, manage keychain entries.
+          Same surface as the <code>providers</code> CLI commands but
+          with a real form.</p>
+
+          <h3>Session</h3>
+          <p>Drill into a single chat session. Full message timeline,
+          tool-call cards, edited messages, copy/edit affordances. The
+          place to retrace what an agent actually did.</p>
+
+          <h3>Artifacts</h3>
+          <p>Browse files the harness produced or referenced — diffs,
+          generated code, attached screenshots. Each artifact links
+          back to the session that created it.</p>
+
+          <h3>Usage</h3>
+          <p>Per-provider token and call counts. Filter by project or
+          time range.</p>
+
+          <h3>Health</h3>
+          <p>What <code>agentmako doctor</code> shows, but as a live
+          status page. Refreshes on a timer; useful to leave open in a
+          background tab.</p>
+        </section>
+
+        <section id="boundary">
+          <h2 data-step="04">Local-only by design</h2>
+          <p>The dashboard is a local web client. It does <em>not</em>:</p>
+          <ul>
+            <li>Bind to anything other than <code>127.0.0.1</code>.</li>
+            <li>Talk to a hosted Mako service (there isn't one).</li>
+            <li>Sync sessions, findings, or artifacts anywhere.</li>
+            <li>Ship auth tokens — there are none.</li>
+          </ul>
+
+          <p>If you want to expose it to teammates, you need to put
+          your own auth + reverse proxy in front of the API port and
+          accept the consequences. The default posture is
+          single-machine.</p>
+
+          <div class="callout">
+            <strong>Privacy</strong>
+            <p>Everything you see in the dashboard comes from the local
+            Reef store and (optionally) the model provider you
+            configured. agentmako has no telemetry. The dashboard
+            itself loads no third-party scripts.</p>
+          </div>
+        </section>
+
+        <section id="api">
+          <h2 data-step="05">The HTTP API the dashboard uses</h2>
+          <p>The dashboard is a thin client over the agentmako HTTP API.
+          You can call the same endpoints from any HTTP client — useful
+          for CI scripts, integrations, or building your own UI.</p>
+
+          <p>Common endpoints:</p>
+          <ul>
+            <li><code>GET /api/v1/health</code> — service health</li>
+            <li><code>GET /api/v1/projects</code> — list attached projects</li>
+            <li><code>POST /api/v1/projects/attach</code> — attach a project</li>
+            <li><code>GET /api/v1/projects/:id/status</code> — project freshness + counts</li>
+            <li><code>GET /api/v1/tools</code> — list registered tools (same surface as the MCP <code>tools/list</code>)</li>
+            <li><code>POST /api/v1/tools/:name/call</code> — invoke a tool with JSON args</li>
+          </ul>
+
+          <p>Full schema lives in the <code>@mako-ai/contracts</code>
+          workspace package; the dashboard's
+          <code>api-types.ts</code> is the canonical TypeScript binding.</p>
+        </section>
+
+        <section id="dev">
+          <h2 data-step="06">Hacking on the dashboard</h2>
+          <p>If you want to modify the dashboard itself, clone the
+          public repo and use the Vite dev workflow:</p>
+
+          <pre><code>git clone https://github.com/drhalto/agentmako
+cd agentmako
+pnpm install
+
+# terminal 1: local API
+pnpm --filter @mako-ai/api dev
+
+# terminal 2: dashboard with HMR
+pnpm --filter @mako-ai/web dev</code></pre>
+
+          <p>The Vite dev server proxies API calls to the local API
+          service, so you get hot reload on dashboard changes without
+          rebuilding the API. Stack: React 19, react-router 7, TanStack
+          Query, Tailwind v4, Shiki for code highlighting, Sonner for
+          toasts.</p>
+        </section>
+
+        <section id="not">
+          <h2 data-step="07">What the dashboard is not</h2>
+          <ul>
+            <li><strong>Not a replacement for your IDE.</strong> It
+            doesn't edit code. Use it to inspect, query, and chat —
+            then edit in your editor.</li>
+            <li><strong>Not the only entry point.</strong> Every action
+            the dashboard offers is also a CLI command and an MCP tool.
+            The dashboard is convenience UI, not authoritative state.</li>
+            <li><strong>Not multi-user.</strong> No accounts, no
+            sharing. If two devs need to see the same Reef state,
+            commit <code>.mako-ai/</code> or use the API directly.</li>
+          </ul>
+        </section>
+
+        <section id="pitfalls">
+          <h2 data-step="08">Common pitfalls</h2>
+          <ul>
+            <li><strong>Port conflicts.</strong> The dashboard picks a
+            free port by default. If your dev environment has strict
+            port allocations, pin one with <code>--port</code>.</li>
+            <li><strong>"Connection refused" when the dashboard
+            opens.</strong> The API service crashed or hasn't finished
+            starting. Refresh the browser, or check
+            <code>agentmako doctor</code> in another terminal.</li>
+            <li><strong>Stale dashboard after upgrade.</strong> The
+            dashboard is a static bundle compiled into the CLI binary.
+            After <code>npm install -g agentmako</code> upgrades, hard-
+            reload (Cmd/Ctrl+Shift+R) to clear cached JS.</li>
+            <li><strong>Browser blocking localhost requests.</strong>
+            Some corporate browser extensions or Safari privacy modes
+            block 127.0.0.1 requests. Try a clean Chrome / Firefox
+            profile or whitelist the loopback address.</li>
+          </ul>
+        </section>
+
+        <section id="related">
+          <h2>Related</h2>
+          <ul>
+            <li><a href="./cli.html">CLI reference</a> — the
+            <code>agentmako serve</code> and <code>agentmako dashboard</code>
+            commands</li>
+            <li><a href="./tools/">Tool catalog</a> — every tool the
+            dashboard's Tools page can call</li>
+            <li><a href="./concepts/reef-engine.html">Reef Engine</a> —
+            the durable state the dashboard browses</li>
+            <li><a href="./troubleshooting.html">Troubleshooting</a></li>
+          </ul>
+        </section>
+
+      </article>
+    </div>
+  </div>
+</section>
+</DocLayout>

@@ -1,0 +1,121 @@
+/* ============================================
+   shared interactive components
+   used across landing, docs, and blog layouts
+   ============================================ */
+
+/* ─── buttons ─── */
+.am-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.am-btn-primary {
+  background: var(--accent, #00D9FF);
+  color: var(--bg, #070d14);
+  font-weight: 600;
+}
+.am-btn-primary:hover { transform: translateY(-1px); }
+
+.am-btn-ghost {
+  background: transparent;
+  color: var(--ink, var(--fg, #e6eef5));
+  border-color: var(--line-2, var(--line-strong, rgba(0, 217, 255, 0.30)));
+}
+.am-btn-ghost:hover {
+  border-color: var(--accent-line, rgba(0, 217, 255, 0.40));
+  color: var(--accent, #00D9FF);
+}
+
+.am-btn-sm {
+  font-size: 12px;
+  padding: 8px 12px;
+}
+
+/* ─── click-to-copy command block ─── */
+.am-cmd {
+  --cmd-bg: var(--panel, var(--bg-3, #15222e));
+  --cmd-bg-hover: var(--panel-2, var(--bg-4, #1f3140));
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--cmd-bg);
+  border: 1px solid var(--accent-line, rgba(0, 217, 255, 0.40));
+  border-radius: 8px;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ink, var(--fg, #e6eef5));
+  box-shadow: 0 0 0 0 var(--accent-soft, rgba(0, 217, 255, 0.16)), inset 0 0 0 1px transparent;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.2s, transform 0.15s;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.am-cmd:hover {
+  background: var(--cmd-bg-hover);
+  border-color: var(--accent, #00D9FF);
+  box-shadow: 0 0 0 4px var(--accent-soft, rgba(0, 217, 255, 0.16));
+  transform: translateY(-1px);
+}
+
+.am-cmd:active { transform: translateY(0); }
+
+.am-cmd__prompt {
+  color: var(--accent, #00D9FF);
+  padding: 10px 0 10px 14px;
+  font-weight: 600;
+}
+
+.am-cmd__text {
+  padding: 10px 14px;
+  color: var(--ink, var(--fg, #e6eef5));
+}
+
+.am-cmd__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-left: 1px solid var(--line-2, var(--line-strong, rgba(0, 217, 255, 0.30)));
+  background: rgba(0, 217, 255, 0.04);
+  color: var(--accent, #00D9FF);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.am-cmd:hover .am-cmd__action {
+  background: rgba(0, 217, 255, 0.10);
+  border-left-color: var(--accent-line, rgba(0, 217, 255, 0.40));
+}
+
+.am-cmd__icon-copy { display: inline-block; }
+.am-cmd__icon-check { display: none; }
+
+.am-cmd.copied {
+  border-color: oklch(0.78 0.13 145);
+  background: rgba(0, 217, 255, 0.04);
+}
+.am-cmd.copied .am-cmd__action {
+  color: oklch(0.78 0.13 145);
+  background: rgba(0, 200, 120, 0.10);
+  border-left-color: oklch(0.78 0.13 145 / 0.4);
+}
+.am-cmd.copied .am-cmd__icon-copy { display: none; }
+.am-cmd.copied .am-cmd__icon-check { display: inline-block; }

@@ -1,0 +1,100 @@
+---
+import BaseHead from '../../components/BaseHead.astro';
+import Nav from '../../components/Nav.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/docs.css';
+import '../../styles/shared.css';
+
+// Posts ordered newest-first. To add a post, drop a new entry here +
+// create a matching src/pages/blog/<slug>.astro using BlogLayout.
+const posts = [
+  {
+    slug: 'agent-amnesia-cross-session-memory',
+    title: 'Your AI coding agent has amnesia. Here\'s how to fix it.',
+    excerpt:
+      'Every Claude Code or Cursor session starts from zero. The agent re-greps the same files, re-runs the same lint checks, re-debates the same finding you already reviewed. Persistent findings kill the loop.',
+    publishedAt: '2026-04-26',
+    readingTimeMin: 9,
+    tags: ['memory', 'reef-engine', 'mcp'],
+  },
+  {
+    slug: 'tenant-leak-audit-supabase-rls',
+    title: 'The tenant-leak audit you didn\'t know you needed',
+    excerpt:
+      'Multi-tenant Supabase apps leak data through RLS gaps that look like normal code. Your AI agent won\'t catch them — they\'re invisible without database awareness. Here\'s what to audit and how.',
+    publishedAt: '2026-04-26',
+    readingTimeMin: 10,
+    tags: ['security', 'supabase', 'rls'],
+  },
+  {
+    slug: 'grep-ripgrep-ast-grep-vs-typed-tools',
+    title: 'grep, ripgrep, ast-grep, and what AI coding agents actually need',
+    excerpt:
+      'grep is excellent. ripgrep made it faster. ast-grep made it structural. None are the right primitive when an AI agent is doing the searching — here\'s why, and what to use instead.',
+    publishedAt: '2026-04-26',
+    readingTimeMin: 9,
+    tags: ['search', 'mcp', 'tooling'],
+  },
+  {
+    slug: 'hidden-cost-of-ai-coding-agents',
+    title: 'The Hidden Cost of AI Coding Agents (and How to Cut It)',
+    excerpt:
+      'Most of your Claude / GPT bill is context, not generation. Here\'s the math, why local models alone don\'t solve it, and how a local context engine acts as the bridge.',
+    publishedAt: '2026-04-26',
+    readingTimeMin: 8,
+    tags: ['cost', 'mcp', 'context'],
+  },
+];
+
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', {
+  year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+});
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <BaseHead
+    title="agentmako blog — local context, frontier generation"
+    description="Notes on AI coding agents, MCP, token economics, and codebase context. Practical writing on building agent tooling that's actually useful."
+    canonicalPath="/blog/"
+    ogType="website"
+  />
+</head>
+<body>
+  <Nav />
+
+  <div class="blog-index">
+    <header class="blog-index__header">
+      <div class="blog-index__shell">
+        <h1 class="blog-index__title">Blog</h1>
+        <p class="blog-index__lede">
+          Notes on AI coding agents, MCP, token economics, and codebase
+          context. Practical writing about building tooling that's actually
+          useful when an agent meets a real codebase.
+        </p>
+      </div>
+    </header>
+
+    <div class="blog-index__shell">
+      <ul class="blog-list">
+        {posts.map((post) => (
+          <li class="blog-list__item">
+            <a class="blog-list__link" href={`/blog/${post.slug}.html`}>
+              <h2 class="blog-list__title">{post.title}</h2>
+              <p class="blog-list__excerpt">{post.excerpt}</p>
+              <div class="blog-list__meta">
+                <time datetime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
+                <span>·</span>
+                <span>{post.readingTimeMin} min read</span>
+                {post.tags.map((t) => <><span>·</span><span>{t}</span></>)}
+              </div>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+
+  <Footer />
+</body>
+</html>

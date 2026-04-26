@@ -1,0 +1,434 @@
+---
+import DocLayout from '../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="agentmako docs — MCP setup, concepts, recipes &amp; tool catalog"
+  description="Set up agentmako with Claude Code, Codex CLI, Cursor, or Cline. MCP wiring, plugin install, concepts, recipes, and the full typed tool catalog."
+  canonicalPath="/docs/"
+  ogImage="/assets/og.png"
+  ogImageAlt="agentmako documentation — MCP setup for Claude Code, Codex CLI, Cursor, and Cline."
+  ogType="website"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}]}
+>
+
+<header class="doc-page-header doc-hub__hero">
+  <span class="eyebrow">Documentation</span>
+  <h1 style="margin-top:1rem;">Wire <em>Mako</em> into your agent.</h1>
+  <p class="doc-hero__sub">
+    <strong>agentmako</strong> is a local-first MCP server for AI coding
+    agents — Claude Code, Codex CLI, Cursor, Cline. Each setup guide is a
+    five-minute walk: install, attach a project, paste an MCP config,
+    restart the agent, run your first <code>context_packet</code>.
+  </p>
+
+  <div class="doc-hub__shortcuts">
+    <a class="doc-hub__chip" href="#quickstart">
+      <span class="doc-hub__chip-num">01</span>
+      <span class="doc-hub__chip-text">
+        <strong>Install in 60 seconds</strong>
+        <em>npm i -g agentmako, attach, doctor.</em>
+      </span>
+    </a>
+    <a class="doc-hub__chip" href="#setup">
+      <span class="doc-hub__chip-num">02</span>
+      <span class="doc-hub__chip-text">
+        <strong>Wire your agent</strong>
+        <em>Claude Code · Codex · Cursor · Cline.</em>
+      </span>
+    </a>
+    <a class="doc-hub__chip" href="./concepts/mcp.html">
+      <span class="doc-hub__chip-num">?</span>
+      <span class="doc-hub__chip-text">
+        <strong>New to MCP?</strong>
+        <em>Start with the protocol, then come back.</em>
+      </span>
+    </a>
+  </div>
+</header>
+
+<section id="quickstart" class="doc-hub__section">
+  <header class="doc-hub__section-head">
+    <span class="doc-hub__section-marker">01</span>
+    <div>
+      <span class="eyebrow">Quickstart</span>
+      <h2>A two-step prerequisite, then any agent.</h2>
+    </div>
+  </header>
+
+  <div class="code-block">
+    <div class="code-block__head">
+      <span class="code-block__lang">// install &amp; attach a real project</span>
+      <button class="copy-inline" data-copy-target="prereq-cmd">Copy</button>
+    </div>
+<pre id="prereq-cmd"><span class="c-prompt">$</span> npm install -g agentmako
+<span class="c-prompt">$</span> cd /path/to/your/project
+<span class="c-prompt">$</span> agentmako connect . --no-db
+<span class="c-prompt">$</span> agentmako doctor          <span class="c-comment"># expect green</span>
+<span class="c-prompt">$</span> agentmako tool list       <span class="c-comment"># confirm tools are registered</span></pre>
+  </div>
+
+  <p class="doc-hub__hint">
+    Use <code>--no-db</code> for the first run. You can add Postgres /
+    Supabase awareness later with interactive
+    <code>agentmako connect .</code> or
+    <code>--db-env DATABASE_URL --yes</code> for CI.
+  </p>
+</section>
+
+<section id="setup" class="doc-hub__section">
+  <header class="doc-hub__section-head">
+    <span class="doc-hub__section-marker">02</span>
+    <div>
+      <span class="eyebrow">Pick your agent</span>
+      <h2>Four harnesses. Same MCP server.</h2>
+    </div>
+  </header>
+
+  <div class="agents">
+    <a class="agent-card" href="./claude-code.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <img class="agent-card__logo" src="/assets/ai-providers/claudecode-color.svg" alt="" width="32" height="32" loading="lazy" />
+          <span class="agent-card__name">Claude Code</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta">
+        <span>MCP</span><span>Plugin</span><span>Skills</span>
+      </div>
+      <p class="agent-card__desc">
+        Plain MCP wiring, or the bundled <code>mako-ai</code> plugin with
+        discovery / trace / graph / database skills.
+      </p>
+    </a>
+
+    <a class="agent-card" href="./codex.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <img class="agent-card__logo" src="/assets/ai-providers/openai.svg" alt="" width="32" height="32" loading="lazy" />
+          <span class="agent-card__name">Codex CLI</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta">
+        <span>MCP</span><span>TOML</span>
+      </div>
+      <p class="agent-card__desc">
+        Drop into <code>~/.codex/config.toml</code>. Codex picks Mako tools
+        up on next run. Works with <code>codex exec</code> and the TUI.
+      </p>
+    </a>
+
+    <a class="agent-card" href="./cursor.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <img class="agent-card__logo" src="/assets/ai-providers/cursor.svg" alt="" width="32" height="32" loading="lazy" />
+          <span class="agent-card__name">Cursor</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta">
+        <span>MCP</span><span>Project-scoped</span>
+      </div>
+      <p class="agent-card__desc">
+        Per-project <code>.cursor/mcp.json</code> or global config. Composer
+        and Agent mode both see Mako tools.
+      </p>
+    </a>
+
+    <a class="agent-card" href="./cline.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__logo agent-card__logo--text" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+          </span>
+          <span class="agent-card__name">Cline</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta">
+        <span>MCP</span><span>VS Code</span>
+      </div>
+      <p class="agent-card__desc">
+        VS Code extension. Settings → MCP Servers, paste the snippet,
+        reload. Works inside any workspace you've attached.
+      </p>
+    </a>
+  </div>
+</section>
+
+<section class="doc-hub__section">
+  <header class="doc-hub__section-head">
+    <span class="doc-hub__section-marker">03</span>
+    <div>
+      <span class="eyebrow">First commands to try</span>
+      <h2>Once it's wired, start with these.</h2>
+    </div>
+  </header>
+
+  <div class="feature-grid">
+    <article class="feature">
+      <div class="feature__num">i</div>
+      <div class="feature__title">tool_search</div>
+      <p class="feature__body">
+        When you don't yet know which Mako tool fits the job. Returns the
+        right tool plus a reason.
+      </p>
+    </article>
+    <article class="feature">
+      <div class="feature__num">ii</div>
+      <div class="feature__title">context_packet</div>
+      <p class="feature__body">
+        When you have a coding task. Returns the file, routes, symbols,
+        findings, and what to read next.
+      </p>
+    </article>
+    <article class="feature">
+      <div class="feature__num">iii</div>
+      <div class="feature__title">reef_scout</div>
+      <p class="feature__body">
+        When you want ranked candidates for a fuzzy question. Facts,
+        findings, and prior reviews — all weighted.
+      </p>
+    </article>
+  </div>
+
+  <div class="callout">
+    <strong>Tip</strong>
+    <p>Copy the agent guidance from
+    <a href="https://github.com/drhalto/agentmako/blob/main/AGENTS.md">AGENTS.md</a>
+    into your project's <code>CLAUDE.md</code> / <code>AGENTS.md</code>. It
+    tells the agent <em>when</em> to call which Mako tool — without it
+    they default to grep.</p>
+  </div>
+</section>
+
+<section class="doc-hub__section">
+  <header class="doc-hub__section-head">
+    <span class="doc-hub__section-marker">04</span>
+    <div>
+      <span class="eyebrow">Concepts</span>
+      <h2>How agentmako thinks about a codebase.</h2>
+    </div>
+  </header>
+
+  <div class="agents">
+    <a class="agent-card" href="./concepts/mcp.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">What is MCP?</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Concept</span><span>Standard</span></div>
+      <p class="agent-card__desc">
+        The Model Context Protocol — what it is, where it came from,
+        why one server runs against every coding agent.
+      </p>
+    </a>
+    <a class="agent-card" href="./concepts/context-packets.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Context packets</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Concept</span><span>Determinism</span></div>
+      <p class="agent-card__desc">
+        What <code>context_packet</code> returns: ranked files, related
+        routes, active findings, and a "read next" pointer.
+      </p>
+    </a>
+    <a class="agent-card" href="./concepts/reef-engine.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Reef Engine</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Concept</span><span>Memory</span></div>
+      <p class="agent-card__desc">
+        Durable facts and findings that persist across agent sessions —
+        so the next turn does not re-discover everything.
+      </p>
+    </a>
+    <a class="agent-card" href="./concepts/freshness.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Freshness model</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Concept</span><span>Trust</span></div>
+      <p class="agent-card__desc">
+        How Mako labels evidence as live, fresh_indexed, stale,
+        contradicted, or unknown — and why "stable" is not "fresh."
+      </p>
+    </a>
+  </div>
+</section>
+
+<section class="doc-hub__section">
+  <header class="doc-hub__section-head">
+    <span class="doc-hub__section-marker">05</span>
+    <div>
+      <span class="eyebrow">Recipes</span>
+      <h2>Walk-throughs for the common agent tasks.</h2>
+    </div>
+  </header>
+
+  <div class="agents">
+    <a class="agent-card" href="./recipes/auth-flow-tracing.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Trace an auth flow</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Recipe</span><span>auth_path</span></div>
+      <p class="agent-card__desc">
+        Bug report says "manager role check is failing." Walk a route
+        to its handler, find the RLS, fix the bug.
+      </p>
+    </a>
+    <a class="agent-card" href="./recipes/safe-refactoring.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Refactor safely</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Recipe</span><span>imports_impact</span></div>
+      <p class="agent-card__desc">
+        Renaming an exported function across a real codebase without
+        shipping broken callers.
+      </p>
+    </a>
+    <a class="agent-card" href="./recipes/database-aware-edits.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Schema-aware edits</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Recipe</span><span>db_table_schema</span></div>
+      <p class="agent-card__desc">
+        Add a Postgres column with RLS, find every code site that
+        touches the table, audit tenant isolation.
+      </p>
+    </a>
+    <a class="agent-card" href="./recipes/debugging-with-context.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Debug with context</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Recipe</span><span>context_packet</span></div>
+      <p class="agent-card__desc">
+        A real "hydration error" debug session — start from
+        <code>context_packet</code>, narrow with freshness, fix.
+      </p>
+    </a>
+  </div>
+</section>
+
+<section class="doc-hub__section">
+  <header class="doc-hub__section-head">
+    <span class="doc-hub__section-marker">06</span>
+    <div>
+      <span class="eyebrow">Reference</span>
+      <h2>Tools, CLI, dashboard, FAQ.</h2>
+    </div>
+  </header>
+
+  <div class="agents">
+    <a class="agent-card" href="./tools/">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Tool catalog</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Reference</span><span>85 tools</span></div>
+      <p class="agent-card__desc">
+        Every typed MCP tool, by category. Read or mutation, with input
+        and output examples.
+      </p>
+    </a>
+    <a class="agent-card" href="./cli.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">CLI reference</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Reference</span><span>commands</span></div>
+      <p class="agent-card__desc">
+        Every <code>agentmako</code> command — connect, doctor, mcp,
+        project, providers, and the optional harness suite.
+      </p>
+    </a>
+    <a class="agent-card" href="./dashboard.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Dashboard</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Reference</span><span>local web UI</span></div>
+      <p class="agent-card__desc">
+        Optional Vite + React dashboard. Browse projects, run tools,
+        inspect Reef state, chat with the harness — local-only.
+      </p>
+    </a>
+    <a class="agent-card" href="./faq.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">FAQ</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Reference</span><span>30+ Qs</span></div>
+      <p class="agent-card__desc">
+        MCP fundamentals, codebase context, agentmako specifics, and
+        troubleshooting.
+      </p>
+    </a>
+    <a class="agent-card" href="./troubleshooting.html">
+      <div class="agent-card__head">
+        <div class="agent-card__title">
+          <span class="agent-card__name">Troubleshooting</span>
+        </div>
+        <span class="agent-card__arrow">↗</span>
+      </div>
+      <div class="agent-card__meta"><span>Reference</span><span>Diagnosis</span></div>
+      <p class="agent-card__desc">
+        "MCP server fails to start", "tools don't appear", "stale
+        results" — diagnose and fix in one place.
+      </p>
+    </a>
+  </div>
+</section>
+
+<section class="doc-hub__outro">
+  <div class="doc-hub__outro-card">
+    <span class="eyebrow">What's next</span>
+    <h2>Read the thinking, watch the traffic.</h2>
+    <p>
+      The blog covers the cost story, what grep can't do for an agent,
+      multi-tenant audit patterns, and cross-session memory with
+      Reef. Practical posts; no hype.
+    </p>
+    <div class="doc-hub__outro-actions">
+      <a class="am-btn am-btn-ghost am-btn-sm" href="/blog/">Read the blog &rarr;</a>
+      <a class="am-btn am-btn-ghost am-btn-sm" href="https://github.com/drhalto/agentmako" rel="noopener">Star on GitHub</a>
+      <a class="am-btn am-btn-ghost am-btn-sm" href="/CLAUDE.md" download>Download CLAUDE.md</a>
+    </div>
+  </div>
+</section>
+
+</DocLayout>

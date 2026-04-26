@@ -1,0 +1,73 @@
+---
+import DocLayout from '../../../layouts/DocLayout.astro';
+---
+<DocLayout
+  title="agentmako recipes — practical agent workflows · agentmako"
+  description="Practical recipes for AI coding agents using agentmako. Trace auth, refactor safely, edit databases with schema awareness, debug tricky bugs."
+  canonicalPath="/docs/recipes/"
+  ogImage="/assets/og.png"
+  ogType="website"
+  breadcrumbs={[{"name": "Home", "href": "/"}, {"name": "Docs", "href": "/docs/"}, {"name": "Recipes", "href": "/docs/recipes/"}]}
+>
+<header class="doc-page-header">
+  <span class="eyebrow">Recipes</span>
+    <h1 style="margin-top:1rem;">agentmako <em>recipes</em></h1>
+    <p class="doc-hero__sub">
+      <strong>agentmako</strong> is a local-first MCP server for AI
+      coding agents. The recipes below are practical walkthroughs of the
+      common workflows: trace an auth flow, refactor safely, edit a
+      Postgres / Supabase schema with full awareness of the call sites,
+      debug a vague bug without grep loops.
+    </p>
+</header>
+<section class="section">
+  <div class="container">
+    <div class="agents" style="margin-top:1rem;">
+      <a class="agent-card" href="./auth-flow-tracing.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Trace an auth flow</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Recipe</span><span>auth_path</span></div>
+        <p class="agent-card__desc">
+          Walk a route to its handler, find the RLS, fix the bug —
+          without grepping the codebase first.
+        </p>
+      </a>
+      <a class="agent-card" href="./safe-refactoring.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Refactor safely</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Recipe</span><span>imports_impact</span></div>
+        <p class="agent-card__desc">
+          Rename an exported function across a real codebase without
+          shipping broken callers.
+        </p>
+      </a>
+      <a class="agent-card" href="./database-aware-edits.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Schema-aware edits</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Recipe</span><span>db_table_schema</span></div>
+        <p class="agent-card__desc">
+          Add a Postgres column with RLS, find every code site that
+          touches the table, audit tenant isolation.
+        </p>
+      </a>
+      <a class="agent-card" href="./debugging-with-context.html">
+        <div class="agent-card__head">
+          <h3 class="agent-card__name">Debug with context</h3>
+          <span class="agent-card__arrow">↗</span>
+        </div>
+        <div class="agent-card__meta"><span>Recipe</span><span>context_packet</span></div>
+        <p class="agent-card__desc">
+          A real "hydration error" debug session — start from
+          <code>context_packet</code>, narrow with freshness, fix.
+        </p>
+      </a>
+    </div>
+  </div>
+</section>
+</DocLayout>
