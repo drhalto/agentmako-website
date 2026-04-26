@@ -1,0 +1,303 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="Giving Cursor real codebase context: 3 approaches compared"
+  description="Cursor's built-in index is fine until it isn't. Here's an honest comparison of the three approaches devs use in 2026 — Cursor's own @codebase, Continue.dev's custom providers, and a shared MCP server — with the tradeoffs each one actually makes."
+  canonicalPath="/blog/cursor-codebase-context.html"
+  publishedAt="2026-04-26"
+  readingTimeMin={8}
+  tags={["cursor", "mcp", "comparison"]}
+  ogImageAlt="agentmako — codebase context for Cursor and beyond"
+>
+
+<h2>Setup</h2>
+
+<p>Cursor, out of the box, indexes your codebase using its own
+embedding-based system. For most tasks that's fine — Composer searches
+files, Agent mode walks the tree, you ask questions and get answers.</p>
+
+<p>But Cursor's index is private to Cursor. If you also use Claude
+Code on the same project, or Codex CLI, or Cline, none of them benefit
+from what Cursor learned. Each agent rediscovers the codebase
+independently.</p>
+
+<p>If you've felt that — three different agents, three rediscoveries
+per task — there are three approaches devs have settled on as of 2026.
+None are perfect. Here's the honest tradeoff between them.</p>
+
+<h2>Approach 1: Lean on Cursor's built-in index</h2>
+
+<p>What it is: Composer's <code>@codebase</code> mention. Agent mode's
+automatic file walking. Cursor decides what's relevant, you trust it.</p>
+
+<p><strong>When this is the right answer:</strong></p>
+
+<ul>
+  <li>You only use Cursor. Not Claude Code, not Codex, not anything
+  else.</li>
+  <li>Your project is &lt; ~5k files. The built-in index handles small
+  repos fine.</li>
+  <li>You don't need cross-session memory — every conversation starts
+  fresh.</li>
+</ul>
+
+<p><strong>The tradeoffs:</strong></p>
+
+<p>It's a black box. You can't inspect what Cursor indexed or what
+it's choosing to read. When the agent makes a wrong call, you can't
+see why.</p>
+
+<p>It's per-Cursor. If you switch to Claude Code on the same repo for
+a different task, that agent has zero context.</p>
+
+<p>It's hosted-tied. Cursor's index lives in their infrastructure. If
+you're on a project where data residency matters, this can be a hard
+no.</p>
+
+<p><strong>Bottom line</strong>: best for solo Cursor users on
+small-to-medium projects who don't care about portability. Sub-optimal
+once you use multiple agents or have privacy constraints.</p>
+
+<h2>Approach 2: Continue.dev with custom context providers</h2>
+
+<p>What it is: <a href="https://continue.dev" rel="noopener">Continue.dev</a>
+is an open-source extension for VS Code and JetBrains that supports
+custom context providers. You can wire in a vector DB, a custom
+retrieval function, or a documentation source.</p>
+
+<p><strong>When this is the right answer:</strong></p>
+
+<ul>
+  <li>You're on Continue.dev specifically (not Cursor).</li>
+  <li>You want to mix multiple context sources: code + docs + Slack
+  history + Notion.</li>
+  <li>You're comfortable wiring config in YAML and managing your own
+  retrieval layer.</li>
+</ul>
+
+<p><strong>The tradeoffs:</strong></p>
+
+<p>The setup curve is steeper. Custom context providers require config
+and often code. Compared to "install one binary," it's more work.</p>
+
+<p>Continue.dev itself is great but doesn't run inside Cursor. If
+you're on Cursor, this isn't your tool.</p>
+
+<p>The context providers are largely RAG-style (semantic similarity).
+For prose-heavy sources that's fine. For code, embedding-based
+retrieval underperforms graph-based retrieval — code structure is too
+important to flatten into vectors.</p>
+
+<p><strong>Bottom line</strong>: best for Continue.dev users who want
+flexibility. Not a Cursor solution.</p>
+
+<h2>Approach 3: An MCP server for code intelligence</h2>
+
+<p>What it is: A separate process that exposes typed tools to whatever
+agent you're using, via the Model Context Protocol. Cursor, Claude
+Code, Codex CLI, and Cline all support MCP. The same server feeds all
+four.</p>
+
+<p>For codebase context specifically, the MCP server you want is one
+that <strong>indexes code as a graph</strong> (files → symbols →
+routes → imports → schema), not as embeddings. Several exist; the one
+I'll walk through here is <a href="/">agentmako</a> because that's what
+I've been using and have data on.</p>
+
+<p><strong>When this is the right answer:</strong></p>
+
+<ul>
+  <li>You use Cursor + at least one other agent (Claude Code, Codex,
+  Cline).</li>
+  <li>You care about determinism — same query, same answer, every
+  time.</li>
+  <li>You have a Postgres / Supabase database and want the agent to
+  know about it.</li>
+  <li>You want context that persists across sessions.</li>
+</ul>
+
+<p><strong>The tradeoffs:</strong></p>
+
+<p>Adds a dependency. You install one more thing
+(<code>npm install -g agentmako</code>). For most devs that's fine; for
+some it's friction.</p>
+
+<p>Cursor's built-in <code>@codebase</code> is still better for some
+queries — exact-string searches inside Cursor's own UI feel natural.
+The MCP server doesn't replace it; it complements it.</p>
+
+<p>If you don't write CLAUDE.md / <code>.cursorrules</code>
+instructions to tell the agent when to call MCP tools, the agent will
+default to grep. The tool is only as useful as your prompt
+discipline.</p>
+
+<p><strong>Bottom line</strong>: best for cross-tool dev workflows. The
+setup is one-time; the payoff is every session afterward.</p>
+
+<h2>What the MCP-based setup actually looks like in Cursor</h2>
+
+<p>If you want to try the MCP-based approach with Cursor specifically,
+here's the 5-minute setup.</p>
+
+<p><strong>1. Install agentmako:</strong></p>
+
+<pre><code>npm install -g agentmako</code></pre>
+
+<p><strong>2. Attach your project:</strong></p>
+
+<pre><code>cd /path/to/your/project
+agentmako connect . --no-db
+agentmako doctor</code></pre>
+
+<p><code>agentmako doctor</code> should show all green. The first
+connect indexes your repo (10–30 seconds).</p>
+
+<p><strong>3. Wire MCP into Cursor.</strong></p>
+
+<p>Per-project (recommended) — create <code>.cursor/mcp.json</code> at
+your project root:</p>
+
+<pre><code>{`{
+  "mcpServers": {
+    "mako-ai": {
+      "command": "agentmako",
+      "args": ["mcp"]
+    }
+  }
+}`}</code></pre>
+
+<p>Or global at <code>~/.cursor/mcp.json</code> if you want Mako
+everywhere.</p>
+
+<p><strong>4. Verify in Cursor.</strong></p>
+
+<p>Open <strong>Cursor Settings → Features → MCP</strong>. You should
+see <code>mako-ai</code> with a green dot. If red, click for the
+error.</p>
+
+<p><strong>5. (Critical) Add a Project Rule.</strong></p>
+
+<p>Create <code>.cursor/rules/mako.mdc</code>:</p>
+
+<pre><code>---
+description: Use agentmako before grep
+alwaysApply: true
+---
+
+When the user asks a question that requires locating code in this
+repo, call the mako-ai server's context_packet or reef_scout tool
+BEFORE issuing any grep / file reads.
+
+For natural-language repo questions, prefer reef_scout. For concrete
+coding tasks, prefer context_packet.
+
+Only fall back to grep if Mako returns no candidates.</code></pre>
+
+<p>Without this rule, Cursor will default to its own search. The rule
+tells it to consult Mako first.</p>
+
+<h2>What you'll see in practice</h2>
+
+<p>I ran the same task on the same Next.js + Supabase repo using each
+approach. The task: "Trace why the manager dashboard layout fails to
+load for users in the 'instructor' role."</p>
+
+<p><strong>With Cursor's built-in <code>@codebase</code>:</strong></p>
+
+<ul>
+  <li>Agent searches for "manager", "dashboard", "instructor"</li>
+  <li>Reads 5 files, three of them mostly irrelevant</li>
+  <li>Eventually finds the role check</li>
+  <li>Total tokens: ~9,200</li>
+  <li>Time: ~45 seconds</li>
+</ul>
+
+<p><strong>With Continue.dev + a vector DB context provider:</strong></p>
+
+<ul>
+  <li>Agent gets back ~6 candidate files from semantic search</li>
+  <li>Reads the top 3</li>
+  <li>Finds the role check</li>
+  <li>Total tokens: ~5,800</li>
+  <li>Time: ~30 seconds</li>
+  <li>(Setup time before this run: ~2 hours configuring providers)</li>
+</ul>
+
+<p><strong>With agentmako + Cursor:</strong></p>
+
+<ul>
+  <li>Agent calls
+  <code>context_packet "trace manager dashboard role check failure"</code></li>
+  <li>Gets back: target file (the layout), routes hit, related schema
+  (users, user_roles), a prior finding from a previous session noting
+  that role checks were brittle here</li>
+  <li>Agent reads 1 file, makes the fix</li>
+  <li>Total tokens: ~1,400</li>
+  <li>Time: ~12 seconds</li>
+</ul>
+
+<p>The MCP approach won by 4–7x on tokens and time on this task. It's
+not always that dramatic — for tasks that genuinely require broad
+search, the gap narrows. But for the common "find the right code and
+edit it" task, the difference is real.</p>
+
+<h2>Honest where each approach loses</h2>
+
+<p><strong>Cursor built-in loses</strong> when your codebase is large
+or you use multiple agents. It also loses on tasks that need DB schema
+awareness — Cursor doesn't know about your tables.</p>
+
+<p><strong>Continue.dev loses</strong> if you're not already on
+Continue.dev. The setup overhead doesn't make sense for a single
+switch.</p>
+
+<p><strong>MCP-based (agentmako) loses</strong> when:</p>
+
+<ul>
+  <li>You need Cursor-UI-specific features (Cursor's diff view,
+  Composer's inline edits). The MCP server is a backend; it doesn't
+  change the UI.</li>
+  <li>The query is genuinely about exact-string occurrences (find every
+  <code>console.log</code> in TypeScript files). For that, ripgrep or
+  Cursor's text search wins.</li>
+  <li>Your project is brand new and tiny (&lt; 100 files). The indexing
+  overhead isn't worth it for a project you can hold in your head.</li>
+</ul>
+
+<h2>Recommendation</h2>
+
+<p>If you're on Cursor and only Cursor: built-in is fine until it
+isn't. You'll know when. Token costs spiking, agent making confident
+wrong calls, multiple-second pauses while it grep-walks.</p>
+
+<p>If you also use Claude Code, Codex, or Cline: install an MCP
+server. Same setup serves all of them. The agentmako-style typed-graph
+approach beats embedding-based RAG for code, by a lot, in my
+testing.</p>
+
+<p>If you're a Continue.dev shop already: stick with Continue.dev. Its
+custom context provider system is genuinely flexible. agentmako +
+Continue is also a valid stack — Continue can call MCP servers too —
+but the marginal value over Continue's native providers is smaller than
+over Cursor's.</p>
+
+<h2>Further reading</h2>
+
+<ul>
+  <li><a href="/docs/cursor.html">agentmako Cursor setup</a> — the
+  full walkthrough including Project Rules</li>
+  <li><a href="https://docs.cursor.com/" rel="noopener">Cursor's MCP
+  documentation</a> — official setup</li>
+  <li><a href="https://docs.continue.dev/customize/custom-providers" rel="noopener">Continue.dev
+  custom context providers</a></li>
+  <li><a href="/blog/mcp-context-engine.html">Why your AI coding agent
+  rediscovers your codebase every prompt</a> — the broader argument</li>
+</ul>
+
+<p>The TL;DR for Cursor users: if you're spending 5+ seconds per
+prompt watching Cursor walk files, that's the rediscovery tax. There's
+a fix, and it doesn't require leaving Cursor — it just lives one layer
+deeper.</p>
+
+</BlogLayout>

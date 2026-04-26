@@ -1,0 +1,331 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="Why your AI coding agent rediscovers your codebase every prompt (and how to fix it)"
+  description="Every Claude Code, Cursor, or Codex session re-greps the same files, re-reads the same handlers, re-builds the same blurry mental model — every prompt. Here's why the rediscovery tax happens, and what a context engine actually does about it."
+  canonicalPath="/blog/mcp-context-engine.html"
+  publishedAt="2026-04-26"
+  readingTimeMin={8}
+  tags={["mcp", "context", "tokens"]}
+  ogImageAlt="agentmako — local context engine for AI coding agents"
+>
+
+<h2>The rediscovery tax</h2>
+
+<p>Every time you ask Claude Code, Cursor, or Codex to fix a bug, the
+agent does the same five things:</p>
+
+<ol>
+  <li>Greps your repo for keywords related to the task.</li>
+  <li>Walks the directory tree to find what looks relevant.</li>
+  <li>Reads four to seven files trying to find the actual handler.</li>
+  <li>Re-reads files it already read because it forgot what was in them.</li>
+  <li>Finally takes a guess.</li>
+</ol>
+
+<p>On a typical Next.js project, this rediscovery loop can burn
+8,000–15,000 tokens per coding task before the agent makes its first
+edit. Your numbers will vary by codebase size and the agent's tool
+discipline — but the pattern is consistent: most tokens get spent
+rebuilding the model, not editing code.</p>
+
+<p>That's the rediscovery tax. Every prompt, your agent rebuilds a
+blurry mental model of your codebase from scratch, because there's no
+persistent layer telling it what's actually true. Then it works from
+that blur.</p>
+
+<p>If you're paying per token (Claude API, OpenAI API, Cursor's pro
+tier when you exceed the cap), this hits your wallet directly. But the
+bigger cost is signal loss. The agent's first read of a file is
+rushed. By the time it edits, it's running on vibes.</p>
+
+<p>This article walks through why this happens, and the fix that's
+emerged in the last six months: <strong>context engines that sit
+between your agent and your codebase.</strong></p>
+
+<h2>Why agents grep blind in the first place</h2>
+
+<p>Coding agents are stateless across turns. Every prompt starts a
+fresh context window. The agent's options for "what's in this
+codebase":</p>
+
+<ul>
+  <li><strong>Trust the user's prompt</strong> — the user mentioned
+  three files; assume those are the only relevant ones. (Wrong half the
+  time.)</li>
+  <li><strong>Trust the agent's training data</strong> — most LLMs
+  were trained on a snapshot of public code from a year ago. Your
+  private repo is not in there.</li>
+  <li><strong>Look it up live</strong> — grep, file walk, read.</li>
+</ul>
+
+<p>Option 3 is what every agent does by default. It's the only honest
+choice. But it's slow, expensive, and lossy.</p>
+
+<p>The standard approach to "give the agent context" used to be:</p>
+
+<ul>
+  <li>Paste big chunks of code into the prompt</li>
+  <li>Maintain a <code>CLAUDE.md</code> / <code>.cursorrules</code>
+  with project-wide rules</li>
+  <li>Use <code>@file</code> mentions to point at specific files</li>
+</ul>
+
+<p>These help, but they're manual. The user has to know what's
+relevant before the agent does. If you knew that, you wouldn't need
+an agent.</p>
+
+<p>What you actually want: the agent looks something up, gets a
+deterministic answer, and moves on. Like calling a function instead of
+running a search engine.</p>
+
+<h2>Enter MCP</h2>
+
+<p>Anthropic released the <strong>Model Context Protocol (MCP)</strong>
+in November 2024. It's a stdio-based protocol that lets AI agents call
+external tools via JSON-RPC. The agent spawns an MCP server process;
+the server exposes tools with typed schemas; the agent calls them when
+it needs to.</p>
+
+<p>The protocol itself is unsexy. The interesting part is the
+architecture it unlocks: <strong>one server, every agent.</strong></p>
+
+<p>Before MCP, every agent had its own custom tooling. Cursor's
+<code>@codebase</code> was Cursor-only. Claude Code's bash tools were
+Claude-only. Each tool you wanted, you reinvented per agent.</p>
+
+<p>After MCP: build the tool once, every compliant agent uses it. As
+of now, MCP-compatible clients include Claude Code, Codex CLI, Cursor,
+Cline, Continue.dev, and a growing list of others.</p>
+
+<p>So the question becomes: what tool would actually fix the
+rediscovery tax?</p>
+
+<h2>What "context engine" means</h2>
+
+<p>A context engine is a process that:</p>
+
+<ol>
+  <li><strong>Indexes your codebase</strong> — files, symbols, routes,
+  imports, schema. Stored locally, queryable.</li>
+  <li><strong>Tracks state</strong> — what was indexed when, what
+  changed, what's stale.</li>
+  <li><strong>Returns ranked, typed context on demand</strong> — the
+  agent calls a single tool, gets back the right starting context, and
+  proceeds.</li>
+</ol>
+
+<p>The opposite of grep. Grep gives you a list of matches. A context
+engine gives you a structured answer: "the auth callback is at
+<code>src/auth/oauth.ts:42</code>, it touches <code>sessions</code>
+and <code>users</code> tables, here are 2 prior reviews of this code,
+read <code>middleware/session.ts:88</code> next."</p>
+
+<p>That's a different game.</p>
+
+<p>The architectural design space:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Approach</th>
+      <th>What it stores</th>
+      <th>Lookup style</th>
+      <th>Where the data lives</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Vector search / RAG</td>
+      <td>embeddings</td>
+      <td>semantic similarity</td>
+      <td>usually hosted</td>
+    </tr>
+    <tr>
+      <td>Built-in editor index (Cursor)</td>
+      <td>per-tool snapshot</td>
+      <td>hybrid</td>
+      <td>hosted/local</td>
+    </tr>
+    <tr>
+      <td><strong>Context engine</strong> (e.g. agentmako)</td>
+      <td>typed graph</td>
+      <td>deterministic</td>
+      <td>local</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Vector search wins for unstructured text (docs, support tickets,
+prose). It loses for code because code is highly structured. A graph
+that knows "this file imports from that file" beats vector similarity
+on accuracy and token cost, every time.</p>
+
+<h2>What changed in the last six months</h2>
+
+<p>The MCP ecosystem went from "Anthropic's experimental protocol" to
+"the way coding agents talk to tools" between November 2024 and now.</p>
+
+<p>Three accelerants:</p>
+
+<ol>
+  <li><strong>Cursor added MCP support</strong> in early 2025. That
+  broke the dam. Once Cursor accepted MCP, Cline followed, then
+  Continue, then Codex.</li>
+  <li><strong>Claude Code shipped its plugin system</strong> with MCP
+  as the transport. Plugins distribute MCP servers + skills
+  (instructions on when to call them).</li>
+  <li><strong>The "context engine" concept got named.</strong> Devs
+  started building dedicated MCP servers focused on codebase
+  intelligence — not generic filesystem access, but typed views of
+  code structure.</li>
+</ol>
+
+<p>I've been building one of these (agentmako) for the past several
+months. It's open source under Apache-2.0, runs locally, and indexes a
+TS/JS/TSX repo in ~10–30 seconds for a 50k-file project.</p>
+
+<p>The point of this post isn't to pitch agentmako specifically. It's
+to argue that <strong>if you're using AI coding agents seriously, you
+should run a context engine.</strong> Whether that's agentmako, a
+different MCP server, or something you build — stop letting your agent
+grep blind.</p>
+
+<h2>What the fix looks like in practice</h2>
+
+<p>Here's the same task, two ways.</p>
+
+<p><strong>Without a context engine:</strong></p>
+
+<pre><code>&gt; grep -rn "callback" .
+   ./node_modules/express/...     (847 hits)
+   ./node_modules/passport/...    (412 hits)
+   ./src/auth/oauth.ts:14         (maybe?)
+   ./src/legacy/old-auth.ts:88    (deleted? unclear)
+   ./tests/auth.spec.ts:201       (test only)
+&gt; read ./src/auth/oauth.ts
+&gt; read ./src/auth/oauth-config.ts
+&gt; read ./src/middleware/session.ts
+&gt; read ./src/routes/index.ts
+// 4 file reads, ~12k tokens, still
+// not sure which path is current.</code></pre>
+
+<p><strong>With a context engine call:</strong></p>
+
+<pre><code>&gt; context_packet "fix broken auth callback"
+
+→ target:    src/auth/oauth.ts:42
+  routes:    GET /auth/callback
+  touches:   sessions, jwt
+  db:        users, sessions
+  findings:  2 prior reviews on this path
+  read next: middleware/session.ts:88
+
+// 1 tool call. Typed.
+// Deterministic. ~600 tokens.</code></pre>
+
+<p>Same task. ~20x token reduction. And the second answer is
+<strong>deterministic</strong> — same prompt produces the same packet,
+every time. That matters because it makes agent behavior debuggable.</p>
+
+<h2>How to install one in five minutes</h2>
+
+<p>If you want to try this with agentmako specifically, here's the
+setup. (Substitute another MCP server if you prefer — the pattern is
+the same.)</p>
+
+<p><strong>1. Install:</strong></p>
+<pre><code>npm install -g agentmako</code></pre>
+
+<p><strong>2. Attach a project:</strong></p>
+<pre><code>cd /path/to/your/project
+agentmako connect . --no-db
+agentmako doctor</code></pre>
+
+<p><code>agentmako doctor</code> should show all green. The first
+<code>connect</code> indexes your repo (10–30 seconds for a typical
+project, longer for monorepos).</p>
+
+<p><strong>3. Wire MCP in your agent.</strong></p>
+
+<p>For Claude Code:</p>
+<pre><code>claude mcp add mako-ai agentmako mcp</code></pre>
+
+<p>For Cursor (<code>.cursor/mcp.json</code>):</p>
+<pre><code>{`{
+  "mcpServers": {
+    "mako-ai": {
+      "command": "agentmako",
+      "args": ["mcp"]
+    }
+  }
+}`}</code></pre>
+
+<p>For Codex CLI (<code>~/.codex/config.toml</code>):</p>
+<pre><code>[mcp_servers.mako-ai]
+command = "agentmako"
+args = ["mcp"]</code></pre>
+
+<p>For Cline: Settings → MCP Servers → paste the same JSON as Cursor.</p>
+
+<p><strong>4. Tell the agent to actually use it.</strong></p>
+
+<p>This is the step most people miss. Drop the agentmako CLAUDE.md
+template into your project root:</p>
+
+<pre><code>curl -O https://agentmako.drhalto.com/CLAUDE.md</code></pre>
+
+<p>That file tells the agent: "before grepping, call
+<code>context_packet</code>. For DB questions, use
+<code>db_table_schema</code> instead of guessing." Without it, the
+agent will default to grep no matter how good your tools are.</p>
+
+<h2>What you'll notice</h2>
+
+<p>In my own usage, switching from "agent greps blind" to "agent calls
+<code>context_packet</code> first":</p>
+
+<ul>
+  <li><strong>Token consumption per task drops 60–90%.</strong> Most of
+  my Claude Code sessions used to burn through API quota in an hour.
+  Now they last all day.</li>
+  <li><strong>The agent stops hallucinating routes, table names,
+  function signatures.</strong> Because it actually looks them up
+  instead of pattern-matching.</li>
+  <li><strong>Cross-session memory.</strong> When the agent finds a
+  bug, the finding persists. Next session, the agent remembers.</li>
+</ul>
+
+<p>The skeptical version: I'm one engineer with one tool I built.
+Maybe my repos are weird. But I've heard the same thing from every dev
+I've gotten to try it.</p>
+
+<h2>Try it on your own</h2>
+
+<p>If you want to see the rediscovery tax in your own workflow:</p>
+
+<ol>
+  <li>Pick a real coding task you'd give your agent (a bug to fix, a
+  refactor, etc.).</li>
+  <li>Run it normally. Note how many file reads happen and how many
+  tokens get spent before any code gets edited.</li>
+  <li>Install agentmako (or any MCP context engine). Run the same task
+  with <code>context_packet</code> as the first call.</li>
+  <li>Compare.</li>
+</ol>
+
+<p>If the second version isn't dramatically faster and more accurate,
+the tool wasn't worth it for your stack. Move on. But I bet it
+will be.</p>
+
+<p>agentmako specifically is at <a href="/">agentmako.drhalto.com</a>
+— Apache-2.0, no hosted service, npm install. The full FAQ is at
+<a href="/docs/faq.html">/docs/faq.html</a> if you want technical depth
+before installing.</p>
+
+<p>The broader point stands either way: <strong>AI coding agents in
+2026 should not be grepping blind.</strong> The infrastructure to fix
+it now exists. Use it.</p>
+
+</BlogLayout>

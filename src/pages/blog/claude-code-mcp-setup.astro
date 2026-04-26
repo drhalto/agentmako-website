@@ -1,0 +1,298 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="How to add an MCP server to Claude Code in 5 minutes (with examples)"
+  description="One CLI command, one restart, one /mcp check. Here's the fast path to wiring an MCP server into Claude Code — plus the three config methods, the failure modes, and a short list of MCP servers worth installing."
+  canonicalPath="/blog/claude-code-mcp-setup.html"
+  publishedAt="2026-04-26"
+  readingTimeMin={7}
+  tags={["claude-code", "mcp", "tutorial"]}
+  ogImageAlt="agentmako — wiring MCP servers into Claude Code"
+>
+
+<h2>The 5-minute version</h2>
+
+<p>You can add an MCP server to Claude Code with one CLI command:</p>
+
+<pre><code>claude mcp add &lt;name&gt; &lt;command&gt; [args...]</code></pre>
+
+<p>For example, to add agentmako (an open-source MCP server for
+codebase context):</p>
+
+<pre><code>claude mcp add mako-ai agentmako mcp</code></pre>
+
+<p>Restart Claude Code, run <code>/mcp</code> inside the session,
+confirm the server shows as connected. Done.</p>
+
+<p>The rest of this post explains what's actually happening, the
+alternative methods, common errors, and a few useful MCP servers to
+pair with Claude Code.</p>
+
+<h2>What is MCP and why does Claude Code use it?</h2>
+
+<p>The <strong>Model Context Protocol</strong> is an open standard from
+Anthropic (released November 2024) that lets AI agents call external
+tools via a stdio JSON-RPC interface. Think of it as "USB for AI
+agents" — one protocol, every tool plugs in.</p>
+
+<p>Claude Code uses MCP as its primary extensibility mechanism. Want
+Claude Code to read your database? Add an MCP server for it. Want it
+to query Linear? Add an MCP server. Want it to understand your
+codebase deeply? Add one for that.</p>
+
+<p>Servers are processes Claude spawns when needed. Each server
+exposes a list of tools with typed schemas. Claude decides when to
+call which tool based on what you're asking.</p>
+
+<h2>Three ways to add an MCP server</h2>
+
+<h3>Method 1: CLI (recommended)</h3>
+
+<p>Claude Code 2.x ships with <code>claude mcp</code> subcommands:</p>
+
+<pre><code>claude mcp add &lt;name&gt; &lt;command&gt; [args...]    # add a server
+claude mcp list                              # list configured servers
+claude mcp remove &lt;name&gt;                     # remove</code></pre>
+
+<p>Example:</p>
+
+<pre><code>claude mcp add filesystem npx @modelcontextprotocol/server-filesystem /Users/me/projects</code></pre>
+
+<p>This adds a filesystem MCP server scoped to
+<code>/Users/me/projects</code>. Restart Claude Code (full quit +
+reopen), and inside a session, <code>/mcp</code> will show the new
+server with green status.</p>
+
+<h3>Method 2: Edit <code>~/.claude.json</code> directly</h3>
+
+<p>If you want full control or a more complex configuration:</p>
+
+<pre><code>{`{
+  "mcpServers": {
+    "mako-ai": {
+      "command": "agentmako",
+      "args": ["mcp"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-filesystem", "/Users/me/projects"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_..."
+      }
+    }
+  }
+}`}</code></pre>
+
+<p>The file lives at:</p>
+
+<ul>
+  <li>macOS / Linux: <code>~/.claude.json</code></li>
+  <li>Windows: <code>%USERPROFILE%\.claude.json</code></li>
+</ul>
+
+<p>Save, fully restart Claude Code.</p>
+
+<h3>Method 3: Project-scoped <code>.mcp.json</code></h3>
+
+<p>For per-project servers (only loaded when you're working in that
+directory), create <code>.mcp.json</code> at the project root:</p>
+
+<pre><code>{`{
+  "mcpServers": {
+    "mako-ai": {
+      "command": "agentmako",
+      "args": ["mcp"]
+    }
+  }
+}`}</code></pre>
+
+<p>This is the right place for codebase-specific tools. agentmako, for
+example, only makes sense in projects you've attached it to —
+<code>.mcp.json</code> keeps it scoped.</p>
+
+<h2>Verifying it works</h2>
+
+<p>After adding a server and restarting, run <code>/mcp</code> inside
+Claude Code:</p>
+
+<pre><code>/mcp
+
+mako-ai      ✓ connected   34 tools
+filesystem   ✓ connected   11 tools
+github       ✗ failed      check token</code></pre>
+
+<p>Green = working. Red = something's wrong. Click (or hover) to see
+the error.</p>
+
+<p>You can also expand a server to see the full list of tools it
+exposes. They appear inside Claude Code conversations as
+<code>mcp__&lt;server-name&gt;__&lt;tool-name&gt;</code> — for example,
+<code>mcp__mako-ai__context_packet</code>.</p>
+
+<h2>Common errors</h2>
+
+<h3>"command not found"</h3>
+
+<p>The most common failure. Claude Code can't find the server's
+executable on <code>PATH</code>.</p>
+
+<p>Fix:</p>
+
+<ol>
+  <li>Confirm it's installed globally: <code>which agentmako</code>
+  (or <code>where</code> on Windows). If empty, the install failed.</li>
+  <li>Re-run the install: <code>npm install -g agentmako</code>.</li>
+  <li><strong>Fully quit Claude Code</strong> and reopen. PATH gets
+  cached at launch.</li>
+</ol>
+
+<p>If <code>which</code> shows the binary but Claude Code still can't
+find it, it's a PATH inheritance issue. Try setting the absolute path
+in <code>~/.claude.json</code>:</p>
+
+<pre><code>{`{
+  "mcpServers": {
+    "mako-ai": {
+      "command": "/usr/local/bin/agentmako",
+      "args": ["mcp"]
+    }
+  }
+}`}</code></pre>
+
+<h3>"server failed to start"</h3>
+
+<p>Run the server manually in a terminal:</p>
+
+<pre><code>agentmako mcp</code></pre>
+
+<p>Whatever stack trace you see is the same thing breaking inside
+Claude Code. Most common causes:</p>
+
+<ul>
+  <li>The tool requires environment variables you didn't set.</li>
+  <li>The tool requires a project to be attached (run
+  <code>agentmako connect .</code> first).</li>
+  <li>A port conflict (some MCP servers bind a local socket).</li>
+</ul>
+
+<h3>Tools show as connected but Claude doesn't call them</h3>
+
+<p>Two possibilities:</p>
+
+<ol>
+  <li><strong>Claude doesn't know to call them.</strong> The agent's
+  tool-selection is conservative by default. Either prompt explicitly
+  ("use the mako-ai context_packet tool first") or add instructions to
+  your <code>CLAUDE.md</code> telling it when to use which tool.</li>
+  <li><strong>The tool descriptions are vague.</strong> If you wrote
+  the MCP server, the tool descriptions matter. Claude reads them when
+  deciding what to call. "Returns context" is too vague; "Returns
+  ranked file paths and line numbers for a coding task description" is
+  precise.</li>
+</ol>
+
+<h2>A short list of useful MCP servers for Claude Code</h2>
+
+<p>These are the ones I keep installed across projects:</p>
+
+<h3><code>agentmako</code> — codebase context engine</h3>
+
+<p>What it does: indexes your repo into local SQLite and exposes typed
+tools for code intelligence (file ranking, route tracing, schema
+awareness, durable findings).</p>
+
+<p>Install:</p>
+
+<pre><code>npm install -g agentmako
+agentmako connect /path/to/your/project --no-db
+claude mcp add mako-ai agentmako mcp</code></pre>
+
+<p>Apache-2.0, local-first, no hosted service.
+<a href="/">agentmako.drhalto.com</a></p>
+
+<h3><code>@modelcontextprotocol/server-filesystem</code> — scoped file access</h3>
+
+<p>What it does: gives Claude controlled access to a specific
+directory tree. Useful when you want Claude to read/write outside the
+current project root.</p>
+
+<pre><code>claude mcp add filesystem npx @modelcontextprotocol/server-filesystem /Users/me/notes</code></pre>
+
+<h3><code>@modelcontextprotocol/server-github</code> — GitHub API</h3>
+
+<p>What it does: lets Claude search issues, read PRs, comment, create
+branches.</p>
+
+<pre><code>claude mcp add github npx @modelcontextprotocol/server-github</code></pre>
+
+<p>Requires a <code>GITHUB_PERSONAL_ACCESS_TOKEN</code> env var.</p>
+
+<h3><code>@modelcontextprotocol/server-postgres</code> — direct DB queries</h3>
+
+<p>What it does: lets Claude run SQL against a Postgres connection.</p>
+
+<p>⚠️ <strong>Caution</strong>: this gives Claude direct DB access. Use
+a read-only connection unless you really know what you're doing. Or
+use agentmako's <code>db_table_schema</code> / <code>db_rls</code>
+tools instead, which are read-only by default.</p>
+
+<h2>The Claude Code plugin system (next level)</h2>
+
+<p>In late 2025, Claude Code added a plugin system on top of MCP. A
+plugin is an MCP server bundled with <strong>skills</strong> —
+Claude-specific instruction files that tell the agent when to call
+which tool.</p>
+
+<p>If you're authoring an MCP server, shipping it as a Claude Code
+plugin gives you better default behavior. The skills tell Claude:
+"for code-search questions, call my <code>find_references</code> tool
+first; for refactoring, call <code>imports_impact</code> first."</p>
+
+<p>agentmako ships as both a bare MCP server AND a Claude Code plugin
+(<code>mako-ai</code>). The plugin path adds 8 skills (mako-guide,
+mako-discovery, mako-trace, mako-graph, mako-database, mako-code-intel,
+mako-workflow, mako-neighborhoods). For Claude Code specifically, the
+plugin path is better — the agent picks tools more accurately because
+it has guided instructions.</p>
+
+<h2>Putting it together</h2>
+
+<p>For most devs the high-leverage stack inside Claude Code is:</p>
+
+<ol>
+  <li><strong>agentmako</strong> for codebase + DB context (one
+  install, every project).</li>
+  <li><strong>filesystem-mcp</strong> for cross-project file access.</li>
+  <li><strong>github-mcp</strong> if you live in PRs.</li>
+  <li><strong>Whatever vertical tool fits your domain</strong> — Linear,
+  Slack, Notion, etc.</li>
+</ol>
+
+<p>Start with one. Get comfortable with <code>/mcp</code> and watching
+what tools Claude actually calls. Add more as the gaps become
+obvious.</p>
+
+<p>The MCP ecosystem is growing fast — new servers ship weekly on
+Smithery and Glama. Worth checking those directories monthly to see
+what's appeared.</p>
+
+<h2>Further reading</h2>
+
+<ul>
+  <li><a href="/docs/claude-code.html">agentmako Claude Code setup
+  guide</a> — full walkthrough including the plugin path</li>
+  <li><a href="/CLAUDE.md">agentmako CLAUDE.md template</a> — drop into
+  your project root to teach Claude when to use which tool</li>
+  <li><a href="https://spec.modelcontextprotocol.io/" rel="noopener">MCP
+  spec</a> — if you want to write your own server</li>
+  <li><a href="https://smithery.ai" rel="noopener">Smithery</a> and
+  <a href="https://glama.ai/mcp/servers" rel="noopener">Glama MCP
+  directory</a> — discover community MCP servers</li>
+</ul>
+
+</BlogLayout>

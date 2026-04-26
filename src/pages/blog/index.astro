@@ -9,6 +9,33 @@ import '../../styles/shared.css';
 // create a matching src/pages/blog/<slug>.astro using BlogLayout.
 const posts = [
   {
+    slug: 'mcp-context-engine',
+    title: 'Why your AI coding agent rediscovers your codebase every prompt (and how to fix it)',
+    excerpt:
+      'Every Claude Code, Cursor, or Codex session re-greps the same files, re-reads the same handlers, re-builds the same blurry mental model — every prompt. Here\'s the rediscovery tax, and what a context engine actually does about it.',
+    publishedAt: '2026-04-26',
+    readingTimeMin: 8,
+    tags: ['mcp', 'context', 'tokens'],
+  },
+  {
+    slug: 'claude-code-mcp-setup',
+    title: 'How to add an MCP server to Claude Code in 5 minutes (with examples)',
+    excerpt:
+      'One CLI command, one restart, one /mcp check. Here\'s the fast path to wiring an MCP server into Claude Code — plus the three config methods, common failure modes, and a short list of MCP servers worth installing.',
+    publishedAt: '2026-04-26',
+    readingTimeMin: 7,
+    tags: ['claude-code', 'mcp', 'tutorial'],
+  },
+  {
+    slug: 'cursor-codebase-context',
+    title: 'Giving Cursor real codebase context: 3 approaches compared',
+    excerpt:
+      'Cursor\'s built-in index is fine until it isn\'t. An honest comparison of the three approaches devs use in 2026 — Cursor\'s own @codebase, Continue.dev custom providers, and a shared MCP server — with the tradeoffs each one actually makes.',
+    publishedAt: '2026-04-26',
+    readingTimeMin: 8,
+    tags: ['cursor', 'mcp', 'comparison'],
+  },
+  {
     slug: 'agent-amnesia-cross-session-memory',
     title: 'Your AI coding agent has amnesia. Here\'s how to fix it.',
     excerpt:
