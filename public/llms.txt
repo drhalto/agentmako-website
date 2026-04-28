@@ -4,11 +4,11 @@
 > typed, deterministic context about your codebase — instead of letting them
 > grep blind. Compatible with Claude Code, Codex CLI, Cursor, and Cline.
 
-agentmako is an open-source MCP server (Apache-2.0) that indexes your repo
+agentmako 0.2.0 is an open-source MCP server (Apache-2.0) that indexes your repo
 into local SQLite, tracks ESLint/TypeScript diagnostics, snapshots your
 Postgres or Supabase schema, and returns deterministic "context packets"
-via the stdio Model Context Protocol. The Reef Engine layer adds durable
-findings, freshness tracking, and cross-session memory.
+via the stdio Model Context Protocol. The Reef Engine layer adds revisioned
+durable facts, findings, diagnostic freshness, and cross-session memory.
 
 Compatible with: Claude Code, Codex CLI, Cursor, Cline, Continue.dev, and
 any other MCP-compliant client. Requires Node.js 20 or newer. No hosted
@@ -43,12 +43,16 @@ agentmako exposes dozens of typed MCP tools across six categories. Use the gener
 
 - **Context**: `context_packet`, `reef_scout`, `reef_inspect`, `evidence_confidence`, `tool_batch`
 - **Code intel**: `repo_map`, `cross_search`, `ast_find_pattern`, `live_text_search`, `symbols_of`, `imports_impact`
-- **Reef Engine**: `project_findings`, `file_findings`, `project_open_loops`, `verification_state`, `project_conventions`, `project_index_refresh`
+- **Reef Engine**: `reef_agent_status`, `reef_known_issues`, `reef_where_used`, `project_findings`, `project_open_loops`, `verification_state`, `working_tree_overlay`, `reef_overlay_diff`
 - **Database**: `db_table_schema`, `db_rls`, `db_rpc`, `tenant_leak_audit`, `schema_usage`, `db_reef_refresh`
-- **Trace & flow**: `route_trace`, `trace_file`, `trace_table`, `flow_map`, `graph_path`, `auth_path`
-- **Diagnostics**: `typescript_diagnostics`, `eslint_diagnostics`, `lint_files`, `git_precommit_check`, `finding_ack`
+- **Trace & flow**: `route_trace`, `trace_file`, `trace_table`, `trace_rpc`, `route_context`, `flow_map`, `graph_path`, `auth_path`, `change_plan`
+- **Diagnostics**: `typescript_diagnostics`, `eslint_diagnostics`, `oxlint_diagnostics`, `biome_diagnostics`, `lint_files`, `diagnostic_refresh`, `git_precommit_check`, `finding_ack`
 
 Full catalog: https://agentmako.drhalto.com/#tools
+
+`schema_usage` uses exact schema-object matching and reports direct app-code
+references. Use `trace_rpc`, `route_context`, `table_neighborhood`, or
+`flow_map` for RPC-mediated and transitive schema paths.
 
 ## Common questions
 

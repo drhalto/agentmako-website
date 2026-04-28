@@ -2,8 +2,8 @@
 import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
-  title="Trace &amp; flow tools — route_trace, trace_file, graph_path · agentmako"
-  description="The trace and flow cluster — route_trace, route_context, trace_file, trace_table, trace_rpc, trace_edge, trace_error, flow_map, graph_path, auth_path."
+  title="Trace &amp; flow tools — route_trace, flow_map, change_plan · agentmako"
+  description="The trace and flow cluster — route_trace, route_context, trace_file, trace_table, trace_rpc, trace_edge, trace_error, flow_map, graph_path, change_plan, auth_path."
   canonicalPath="/docs/tools/flow.html"
   ogImage="/assets/og.png"
   ogType="article"
@@ -64,6 +64,11 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       <article id="flow_map">
         <h2><code>flow_map</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
         <p>Convert a graph path into ordered steps and boundaries — useful when explaining a multi-hop request flow to the agent.</p>
+      </article>
+
+      <article id="change_plan">
+        <h2><code>change_plan</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Plan an edit between a starting surface and a target surface using the same graph traversal basis as <code>flow_map</code>. It returns impacted surfaces, path evidence, and verification hints for the agent.</p>
       </article>
 
       <article id="graph_path">

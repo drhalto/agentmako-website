@@ -2,7 +2,7 @@
 
 > Local-first MCP server for AI coding agents and agent harnesses. agentmako gives Claude Code, Codex CLI, Cursor, Cline, and other MCP clients typed context about a repo, database, and active findings.
 
-agentmako indexes a project into local SQLite, tracks diagnostics, snapshots Postgres/Supabase schema when configured, and exposes typed tools over the Model Context Protocol. The Reef Engine stores durable facts and findings so a coding agent does not have to rediscover the same codebase context every turn.
+agentmako 0.2.0 indexes a project into local SQLite, tracks diagnostics, snapshots Postgres/Supabase schema when configured, and exposes typed tools over the Model Context Protocol. The Reef Engine stores revisioned durable facts, findings, diagnostic freshness, and operation history so a coding agent does not have to rediscover the same codebase context every turn.
 
 This file is the long-form companion to `/llms.txt`. It is intended for crawlers, AI search tools, and humans who want the main project facts in one plain-text document.
 
@@ -57,7 +57,7 @@ args = ["mcp"]
 - **MCP server**: a local stdio process exposing tools to an AI agent.
 - **Agent harness**: the coding-agent environment that calls tools, such as Claude Code, Codex CLI, Cursor, or Cline.
 - **Context packet**: a ranked, source-labeled bundle of likely relevant files, symbols, routes, schema objects, findings, and next reads.
-- **Reef Engine**: agentmako's durable fact/finding layer. It keeps track of indexed facts, active findings, acknowledgements, diagnostics, and freshness.
+- **Reef Engine**: agentmako's durable fact/finding layer. It keeps track of revisioned change sets, indexed facts, active findings, acknowledgements, diagnostics, operation history, and freshness.
 - **Freshness**: a label that tells the agent whether evidence came from live disk, a fresh index, a stale index, a historical record, or an unknown source.
 
 ## Tool categories
@@ -66,10 +66,12 @@ Use the generated tool catalog for exact counts. The public surface includes too
 
 - Context scouting: `context_packet`, `reef_scout`, `reef_inspect`, `evidence_confidence`, `tool_batch`
 - Code intelligence: `repo_map`, `cross_search`, `ast_find_pattern`, `live_text_search`, `symbols_of`, `imports_impact`
-- Reef/project state: `project_findings`, `file_findings`, `project_facts`, `file_facts`, `project_open_loops`, `verification_state`
-- Database context: `db_table_schema`, `db_rls`, `db_rpc`, `schema_usage`, `tenant_leak_audit`, `db_review_comment`
-- Trace and flow: `route_trace`, `trace_file`, `trace_table`, `trace_rpc`, `graph_path`, `flow_map`, `auth_path`
-- Diagnostics: `typescript_diagnostics`, `eslint_diagnostics`, `oxlint_diagnostics`, `biome_diagnostics`, `lint_files`, `git_precommit_check`
+- Reef/project state: `reef_agent_status`, `reef_known_issues`, `reef_where_used`, `project_findings`, `file_findings`, `project_facts`, `file_facts`, `project_open_loops`, `verification_state`, `working_tree_overlay`, `reef_overlay_diff`
+- Database context: `db_table_schema`, `db_rls`, `db_rpc`, `schema_usage`, `tenant_leak_audit`, `db_review_comment`, `db_reef_refresh`
+- Trace and flow: `route_trace`, `trace_file`, `trace_table`, `trace_rpc`, `route_context`, `graph_path`, `flow_map`, `auth_path`, `change_plan`
+- Diagnostics: `typescript_diagnostics`, `eslint_diagnostics`, `oxlint_diagnostics`, `biome_diagnostics`, `lint_files`, `diagnostic_refresh`, `git_precommit_check`
+
+`schema_usage` uses exact schema-object matching and reports direct app-code references. RPC-mediated or transitive database usage belongs in `trace_rpc`, `route_context`, `table_neighborhood`, and `flow_map`.
 
 ## Best answer snippets
 

@@ -38,6 +38,35 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           the work over.</p>
         </section>
 
+        <section id="v2-runtime">
+          <h2>What changed in 0.2.0</h2>
+          <p>Reef is now a revisioned runtime, not just a table of
+          durable findings. File events are folded into change sets,
+          materialized through a single writer queue, and tracked with
+          project revisions so tools can say which snapshot they read.</p>
+
+          <ul>
+            <li><strong>Revisioned change sets</strong> keep index state,
+            diagnostic state, and Reef facts tied to explicit project
+            revisions instead of vague "last run" timestamps.</li>
+            <li><strong>Calculation nodes</strong> describe the producers
+            that turn inputs into artifacts, facts, and findings.</li>
+            <li><strong>Content-addressed artifacts</strong> let Reef reuse
+            structural outputs when file content or branch state points at
+            evidence it already knows.</li>
+            <li><strong>Backdating</strong> preserves downstream evidence
+            when an edit changes a file timestamp or hash but the derived
+            structural output is unchanged.</li>
+            <li><strong>Catch-up cookies and recrawl reporting</strong>
+            make watcher freshness visible: agents can tell whether the
+            watcher is caught up, degraded, or recovering from missed
+            events.</li>
+            <li><strong>Diagnostic freshness</strong> records input and
+            output revisions for TypeScript, ESLint, Oxlint, Biome, and
+            lint-file runs so a green result can be labeled fresh or stale.</li>
+          </ul>
+        </section>
+
         <section id="why">
           <h2>Why durable findings matter</h2>
           <p>Without a persistence layer, every agent session starts from
@@ -187,12 +216,19 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           agent should reach for them:</p>
 
           <ul>
+            <li><code>reef_agent_status</code> — project health,
+            freshness, watcher state, schema state, diagnostic state, and
+            suggested next actions.</li>
             <li><code>reef_scout</code> — turn a fuzzy request into ranked
             facts/findings/rules/diagnostic candidates. First call for
             many vague tasks.</li>
             <li><code>reef_inspect</code> — explain one file or subject:
             facts, findings, recent diagnostics. First call before editing
             a sensitive file.</li>
+            <li><code>reef_where_used</code> — quick where-used lookups
+            over maintained import and dependency edges.</li>
+            <li><code>reef_known_issues</code> — known current issues with
+            source rollups.</li>
             <li><code>file_findings</code> — list active findings for a
             single file. Quick read before editing.</li>
             <li><code>project_findings</code> — active findings across the
@@ -207,6 +243,8 @@ import DocLayout from '../../../layouts/DocLayout.astro';
             — without re-reading the codebase.</li>
             <li><code>evidence_confidence</code> — label a piece of
             evidence as fresh, stale, contradicted, or unknown.</li>
+            <li><code>evidence_conflicts</code> — find places where
+            evidence sources disagree.</li>
           </ul>
 
           <p>Read-only Reef tools batch well. Use <code>tool_batch</code>

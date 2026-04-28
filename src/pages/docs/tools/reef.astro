@@ -2,8 +2,8 @@
 import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
-  title="Reef Engine tools — project_findings, file_findings, ack ledger · agentmako"
-  description="The Reef Engine cluster — project_findings, file_findings, project_open_loops, verification_state, project_conventions, finding_ack, and the durable memory layer."
+  title="Reef Engine tools - agent status, durable findings, freshness · agentmako"
+  description="The Reef Engine cluster — reef_agent_status, reef_scout, reef_inspect, project_open_loops, verification_state, known issues, acks, and durable project memory."
   canonicalPath="/docs/tools/reef.html"
   ogImage="/assets/og.png"
   ogType="article"
@@ -13,100 +13,160 @@ import DocLayout from '../../../layouts/DocLayout.astro';
   <span class="eyebrow">Tools &middot; Reef Engine</span>
     <h1 style="margin-top:1rem;"><em>Reef Engine</em> tools</h1>
     <p class="doc-hero__sub">
-      Reef is the durable fact and finding layer. These tools query and
-      update what Mako already knows about a project — across sessions.
-      Read first, ack last.
+      Reef is Mako's durable project knowledge layer. It keeps facts,
+      findings, diagnostic runs, freshness labels, operation history, and
+      review acknowledgements in local SQLite so the agent can ask what
+      Mako already knows before it starts grepping.
     </p>
 </header>
 <section class="section">
   <div class="container">
     <article class="doc-body" style="max-width: 78ch;">
 
+      <section id="workflow">
+        <h2>Common Reef workflow</h2>
+        <ol>
+          <li>Start with <code>reef_agent_status</code> to see whether the index, diagnostics, and schema evidence are fresh enough for the task.</li>
+          <li>Use <code>reef_scout</code>, <code>context_packet</code>, or <code>reef_inspect</code> to pull focused evidence before editing.</li>
+          <li>Check <code>project_open_loops</code> and <code>reef_known_issues</code> for unresolved findings that may already cover the problem.</li>
+          <li>If diagnostics are stale, run <code>diagnostic_refresh</code>; if the index is stale, use <code>project_index_refresh</code> with <code>mode: "if_stale"</code>.</li>
+        </ol>
+      </section>
+
+      <article id="reef_agent_status">
+        <h2><code>reef_agent_status</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Top-level project health for an agent turn: index revision, watcher state, schema freshness, diagnostic freshness, stale sources, and suggested next actions.</p>
+      </article>
+
+      <article id="reef_scout">
+        <h2><code>reef_scout</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Ranked Reef evidence for a vague request. It can mix facts, findings, diagnostic history, schema hints, and confidence labels so the agent has a grounded starting point.</p>
+      </article>
+
+      <article id="reef_inspect">
+        <h2><code>reef_inspect</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Deep evidence for one file or subject: facts, findings, recent diagnostic runs, and freshness metadata. Use before editing files with known risk.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "filePath": "lib/auth/dal.ts", "limit": 50 &rcub;</code></pre>
+      </article>
+
+      <article id="reef_where_used">
+        <h2><code>reef_where_used</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Where-used lookup backed by maintained import and dependency edges. It is fast and structured; use <code>ast_find_pattern</code> or <code>live_text_search</code> when you need exact local text references.</p>
+      </article>
+
+      <article id="reef_known_issues">
+        <h2><code>reef_known_issues</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Known current issues with source rollups. Useful at the start of a session, before repeating an investigation that Reef already remembers.</p>
+      </article>
+
+      <article id="project_open_loops">
+        <h2><code>project_open_loops</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Unresolved findings, stale facts, failed or stale diagnostic sources, and other "needs attention" evidence in one view. Newer successful diagnostic runs supersede older stale runs for the same source.</p>
+      </article>
+
+      <article id="verification_state">
+        <h2><code>verification_state</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Whether cached diagnostics still cover the current working tree. This prevents an agent from treating an old green result as current proof.</p>
+      </article>
+
       <article id="project_findings">
         <h2><code>project_findings</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Active durable findings for the project. "What's on fire?" view across all files.</p>
+        <p>Active durable findings across the project. Use for a broad "what's on fire?" view.</p>
       </article>
 
       <article id="file_findings">
         <h2><code>file_findings</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Findings attached to one file. Read this before editing a sensitive file — someone may have already analyzed it.</p>
+        <p>Findings attached to one file. Read this before editing a sensitive file; a prior agent or diagnostic may have already analyzed it.</p>
         <h3>Input</h3>
         <pre><code>&lcub; "filePath": "lib/auth/dal.ts", "limit": 50 &rcub;</code></pre>
       </article>
 
       <article id="project_facts">
         <h2><code>project_facts</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Lower-level facts behind project findings. Useful when a finding cites a fact you want to inspect.</p>
+        <p>Lower-level facts behind project findings: symbols, imports, routes, schema usage, diagnostic facts, and other structured evidence.</p>
       </article>
 
       <article id="file_facts">
         <h2><code>file_facts</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Indexed facts for one file (symbols, exports, imports, route mappings).</p>
+        <p>Indexed facts for one file, including symbols, exports, imports, route mappings, and tool-produced evidence.</p>
       </article>
 
-      <article id="project_open_loops">
-        <h2><code>project_open_loops</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Unresolved findings, stale facts, and failed diagnostic runs in one view.</p>
-      </article>
-
-      <article id="verification_state">
-        <h2><code>verification_state</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Whether cached diagnostics still cover current working-tree facts. Tells you if "everything's fine" is current or stale.</p>
-      </article>
-
-      <article id="project_conventions">
-        <h2><code>project_conventions</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Discovered auth guards, runtime boundaries, generated paths, route patterns, and schema usage conventions.</p>
-        <h3>When to use it</h3>
-        <p>Onboarding the agent to project rules without re-reading the codebase.</p>
+      <article id="project_diagnostic_runs">
+        <h2><code>project_diagnostic_runs</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Diagnostic run history with source, status, input/output revisions, covered files, stale reasons, and timestamps.</p>
       </article>
 
       <article id="rule_memory">
         <h2><code>rule_memory</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Rule descriptors plus finding history. Useful when investigating recurring lint patterns.</p>
+        <p>Rule descriptors plus active, acknowledged, and resolved finding counts. Useful when a project has recurring warnings with history.</p>
+      </article>
+
+      <article id="evidence_confidence">
+        <h2><code>evidence_confidence</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Confidence labels for evidence such as <code>verified_live</code>, <code>fresh_indexed</code>, <code>stale_indexed</code>, <code>historical</code>, or <code>unknown</code>.</p>
+      </article>
+
+      <article id="evidence_conflicts">
+        <h2><code>evidence_conflicts</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Find evidence that disagrees across sources or revisions. Use this when two tools appear to give different answers.</p>
+      </article>
+
+      <article id="project_conventions">
+        <h2><code>project_conventions</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Discovered auth guards, runtime boundaries, generated paths, route patterns, and schema usage conventions without re-reading the whole codebase.</p>
       </article>
 
       <article id="reef_instructions">
         <h2><code>reef_instructions</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Scoped <code>.mako/instructions.md</code> and <code>AGENTS.md</code> instructions for requested files.</p>
+        <p>Scoped <code>.mako/instructions.md</code>, <code>AGENTS.md</code>, and related project instructions for requested files.</p>
+      </article>
+
+      <article id="project_index_status">
+        <h2><code>project_index_status</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Index freshness, file counts, materialized revision, watcher state, and stale/deleted/unknown file counts.</p>
       </article>
 
       <article id="project_index_refresh">
         <h2><code>project_index_refresh</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
-        <p>Run the project indexer and report freshness changes.</p>
+        <p>Run the project indexer and materialize a new Reef revision. Use <code>mode: "if_stale"</code> for normal work; use <code>force</code> only when indexed answers look wrong.</p>
         <h3>Input</h3>
         <pre><code>&lcub; "mode": "if_stale", "reason": "after batch of edits" &rcub;</code></pre>
-        <p>Use <code>mode: "if_stale"</code> for the cheap path. <code>mode: "force"</code> only when indexed answers look wrong.</p>
       </article>
 
       <article id="working_tree_overlay">
         <h2><code>working_tree_overlay</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
-        <p>Snapshot working-tree file facts (existence, hash, size) without reparsing AST/imports/routes/schema.</p>
+        <p>Snapshot working-tree file facts such as existence, hash, size, line count, and mtime without a full AST/import/route refresh.</p>
+      </article>
+
+      <article id="reef_overlay_diff">
+        <h2><code>reef_overlay_diff</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Compare persisted Reef facts with the current working-tree overlay. Useful when an agent needs to know what changed since the last indexed snapshot.</p>
       </article>
 
       <article id="finding_ack">
         <h2><code>finding_ack</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
-        <p>Mark a finding as reviewed-safe in the local ledger. Don't ack noise — acks are a real review action.</p>
-        <h3>Input (from <code>lint_files</code>)</h3>
+        <p>Mark one finding as reviewed-safe in the local ledger. Acks require a reason and are treated as real review actions.</p>
+        <h3>Input</h3>
         <pre><code>&lcub;
-  "category":     "&lt;finding.code&gt;",
-  "subjectKind":  "diagnostic_issue",
-  "filePath":     "&lt;finding.path&gt;",
-  "fingerprint":  "&lt;finding.identity.matchBasedId&gt;",
-  "reason":       "Reviewed false positive because ...",
+  "category": "auth/missing-tenant-scope",
+  "subjectKind": "diagnostic_issue",
+  "filePath": "lib/auth/dal.ts",
+  "fingerprint": "auth/missing-tenant-scope:lib/auth/dal.ts:resolveManagerScope",
+  "reason": "Reviewed false positive because the RPC enforces tenant scope.",
   "sourceToolName": "lint_files",
-  "sourceRuleId": "&lt;finding.code&gt;"
+  "sourceRuleId": "auth/missing-tenant-scope"
 &rcub;</code></pre>
       </article>
 
       <article id="finding_ack_batch">
         <h2><code>finding_ack_batch</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
-        <p>Same payload shape as <code>finding_ack</code>, applied across many findings in one call. For sweeping reviews.</p>
+        <p>Apply the same ack shape across multiple findings. Use for sweeping reviews only after confirming the pattern is intentional.</p>
       </article>
 
       <article id="finding_acks_report">
         <h2><code>finding_acks_report</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Report on what's been acked. Run this before assuming a clean diagnostic result means no one suppressed anything.</p>
+        <p>Report on acknowledged findings. Run this before assuming a clean diagnostic result means nothing was suppressed.</p>
       </article>
 
       <section id="related">
@@ -114,8 +174,8 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <ul>
           <li><a href="../concepts/reef-engine.html">What is the Reef Engine?</a></li>
           <li><a href="../concepts/freshness.html">Freshness model</a></li>
-          <li><a href="./context.html">Context tools</a> — context_packet pulls activeFindings from Reef.</li>
-          <li><a href="./diagnostics.html">Diagnostic tools</a> — they write into Reef.</li>
+          <li><a href="./context.html">Context tools</a> — <code>context_packet</code> and <code>reef_scout</code> use Reef evidence.</li>
+          <li><a href="./diagnostics.html">Diagnostic tools</a> — diagnostics write freshness-aware runs into Reef.</li>
         </ul>
       </section>
 

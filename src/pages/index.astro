@@ -40,7 +40,7 @@ import Base from '../layouts/Base.astro';
         "name": "agentmako",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Linux, Windows",
-        "softwareVersion": "0.1.0",
+        "softwareVersion": "0.2.0",
         "downloadUrl": "https://www.npmjs.com/package/agentmako",
         "url": "https://agentmako.drhalto.com/",
         "description": "Local-first MCP server that gives AI coding agents typed, deterministic context about your codebase. Compatible with Claude Code, Codex CLI, Cursor, and Cline.",
@@ -182,7 +182,8 @@ import Base from '../layouts/Base.astro';
             <strong>agentmako</strong> is a local-first MCP server for AI coding
             agents — Claude Code, Codex CLI, Cursor, Cline, and any other MCP
             client. It indexes the repo, tracks diagnostics, snapshots your
-            Postgres or Supabase schema, and returns typed context packets — so
+            Postgres or Supabase schema, and keeps Reef's persistent project
+            knowledge fresh enough to query — so
             your agent stops rediscovering everything from scratch on every turn.
           </p>
           <div class="am-hero-cta">
@@ -205,7 +206,7 @@ import Base from '../layouts/Base.astro';
           <div class="am-hero-meta">
             <span>local-first · no hosted service</span>
             <span>node &ge; 20</span>
-            <span>85 typed tools</span>
+            <span>80+ typed tools</span>
             <span>apache-2.0</span>
           </div>
         </div>
@@ -339,7 +340,7 @@ import Base from '../layouts/Base.astro';
             <span class="num">01</span>
             <div>
               <span class="cmd"><span class="prompt">$</span>npm install -g agentmako</span>
-              <span class="out ok">added agentmako@0.1.0 · 1 binary in $PATH</span>
+              <span class="out ok">added agentmako@0.2.0 · 1 binary in $PATH</span>
             </div>
             <button class="am-copy" data-copy="npm install -g agentmako">copy</button>
           </div>
@@ -486,7 +487,7 @@ args    = [<span class="s">"mcp"</span>]</code></pre>
         <div class="am-playbook__bar">
           <div class="dots"><span></span><span></span><span></span></div>
           <span class="title">CLAUDE.md · AGENTS.md — preview</span>
-          <span class="badge">306 lines</span>
+          <span class="badge">311 lines</span>
         </div>
         <div class="am-playbook__body">
 <pre id="playbook-text"><span class="h2">## Mako MCP Usage</span>
@@ -558,7 +559,7 @@ Do not treat answer stability as freshness. A stable indexed answer can still be
     <div class="am-shell">
       <div class="am-sect-head am-reveal">
         <span class="am-sect-eyebrow" data-glyph="⌬">tool catalog</span>
-        <h2 class="am-h2">85 typed tools. One MCP server.</h2>
+        <h2 class="am-h2">80+ typed tools. One MCP server.</h2>
         <p class="am-lede">
           Six clusters cover the whole agent loop — from "what's relevant?" to
           "did it ship?".

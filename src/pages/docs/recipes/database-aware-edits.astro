@@ -3,7 +3,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
   title="How to make AI agents schema-aware (Postgres / Supabase) · agentmako"
-  description="A walkthrough recipe — add a Postgres column with RLS, find every code site that touches the table, audit tenant isolation. With db_table_schema, db_rls, schema_usage, tenant_leak_audit."
+  description="A walkthrough recipe — add a Postgres column with RLS, find direct code references and transitive RPC paths, audit tenant isolation. With db_table_schema, db_rls, schema_usage, tenant_leak_audit."
   canonicalPath="/docs/recipes/database-aware-edits.html"
   ogImage="/assets/og.png"
   ogImageAlt="agentmako — schema-aware edits recipe."
@@ -72,15 +72,16 @@ $ agentmako connect . --db-env DATABASE_URL --yes</code></pre>
       </section>
 
       <section>
-        <h2>Step 3 — find every app-code site that reads the table</h2>
+        <h2>Step 3 — find app-code sites that read the table</h2>
         <pre><code>&lcub;
   "tool": "schema_usage",
   "args": &lcub; "schema": "public", "object": "organizations" &rcub;
 &rcub;</code></pre>
-        <p>Returns every call site in the codebase that touches the
-        <code>organizations</code> table — Supabase
-        <code>.from("organizations")</code>, raw SQL strings, RPC calls,
-        and definition sites. This is your edit list.</p>
+        <p>Returns exact definition sites and direct app-code references
+        such as Supabase <code>.from("organizations")</code> calls and
+        raw SQL strings. For RPC-mediated or transitive paths, follow with
+        <code>trace_rpc</code>, <code>route_context</code>, or
+        <code>flow_map</code>.</p>
       </section>
 
       <section>
@@ -91,9 +92,10 @@ $ agentmako connect . --db-env DATABASE_URL --yes</code></pre>
   "tool": "db_reef_refresh",
   "args": &lcub;&rcub;
 &rcub;</code></pre>
-        <p>Without this, subsequent queries to <code>db_table_schema</code>
-        and <code>schema_usage</code> would return stale results. With it,
-        the next call sees the new column.</p>
+        <p>Without this, Reef-backed schema and usage tools can keep
+        serving stale facts. With a live database binding, make sure the
+        schema snapshot itself is live-fresh before treating the result as
+        proof of production database state.</p>
       </section>
 
       <section>
@@ -136,9 +138,9 @@ $ agentmako connect . --db-env DATABASE_URL --yes</code></pre>
           <li><code>db_table_schema</code> — columns, indexes, FKs, RLS, triggers.</li>
           <li><code>db_rls</code> — RLS state and policies for one table.</li>
           <li><code>db_rpc</code> — function signature, return shape, security, source.</li>
-          <li><code>schema_usage</code> — find where a schema object is defined and referenced in app code.</li>
+          <li><code>schema_usage</code> — find exact schema-object definitions and direct app-code references.</li>
           <li><code>tenant_leak_audit</code> — multi-tenant RLS posture audit.</li>
-          <li><code>db_reef_refresh</code> — replace Reef DB facts from the current schema snapshot.</li>
+          <li><code>db_reef_refresh</code> — persist DB schema facts from the current schema snapshot into Reef.</li>
           <li><code>db_ping</code> — verify database connectivity.</li>
           <li><code>git_precommit_check</code> — staged auth/boundary checks.</li>
         </ul>

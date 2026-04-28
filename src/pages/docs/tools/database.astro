@@ -62,10 +62,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 
       <article id="schema_usage">
         <h2><code>schema_usage</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Find where a schema object is defined and referenced in app code (Supabase <code>.from()</code>, raw SQL strings, RPC calls).</p>
+        <p>Find exact schema-object definitions and direct app-code references such as Supabase <code>.from()</code> calls and raw SQL strings.</p>
         <h3>Input</h3>
         <pre><code>&lcub; "schema": "public", "object": "organizations" &rcub;</code></pre>
-        <p>Use before migrating a table to find every code site that needs updating.</p>
+        <p>Use before migrating a table to find direct code sites that need updating. RPC-mediated or transitive usage is intentionally handled by <code>trace_rpc</code>, <code>route_context</code>, <code>table_neighborhood</code>, and <code>flow_map</code>.</p>
       </article>
 
       <article id="tenant_leak_audit">
@@ -77,9 +77,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 
       <article id="db_reef_refresh">
         <h2><code>db_reef_refresh</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
-        <p>Replace Reef DB facts from the current schema snapshot. Mutates only Mako's local store.</p>
+        <p>Persist database schema objects, columns, indexes, policies, triggers, function table refs, and optional app usage into Reef. Mutates only Mako's local store.</p>
         <h3>When to use it</h3>
-        <p>After schema migrations, Supabase type regeneration, or any DDL change.</p>
+        <p>After schema migrations, Supabase type regeneration, or any DDL change. If a live database binding exists, schema freshness still depends on a live snapshot; repo-only refreshes update persisted facts but do not prove the live database has the same shape.</p>
       </article>
 
       <section id="related">
