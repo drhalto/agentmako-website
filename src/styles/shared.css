@@ -21,7 +21,7 @@
 }
 
 .am-btn-primary {
-  background: var(--accent, #00D9FF);
+  background: var(--accent, #27ADC4);
   color: var(--bg, #070d14);
   font-weight: 600;
 }
@@ -30,11 +30,11 @@
 .am-btn-ghost {
   background: transparent;
   color: var(--ink, var(--fg, #e6eef5));
-  border-color: var(--line-2, var(--line-strong, rgba(0, 217, 255, 0.30)));
+  border-color: var(--line-2, var(--line-strong, rgba(39, 173, 196, 0.30)));
 }
 .am-btn-ghost:hover {
-  border-color: var(--accent-line, rgba(0, 217, 255, 0.40));
-  color: var(--accent, #00D9FF);
+  border-color: var(--accent-line, rgba(39, 173, 196, 0.40));
+  color: var(--accent, #27ADC4);
 }
 
 .am-btn-sm {
@@ -53,12 +53,12 @@
   font-size: 13px;
   font-weight: 500;
   background: var(--cmd-bg);
-  border: 1px solid var(--accent-line, rgba(0, 217, 255, 0.40));
+  border: 1px solid var(--accent-line, rgba(39, 173, 196, 0.40));
   border-radius: 8px;
   padding: 0;
   cursor: pointer;
   color: var(--ink, var(--fg, #e6eef5));
-  box-shadow: 0 0 0 0 var(--accent-soft, rgba(0, 217, 255, 0.16)), inset 0 0 0 1px transparent;
+  box-shadow: 0 0 0 0 var(--accent-soft, rgba(39, 173, 196, 0.16)), inset 0 0 0 1px transparent;
   transition: border-color 0.15s, background 0.15s, box-shadow 0.2s, transform 0.15s;
   white-space: nowrap;
   position: relative;
@@ -67,15 +67,15 @@
 
 .am-cmd:hover {
   background: var(--cmd-bg-hover);
-  border-color: var(--accent, #00D9FF);
-  box-shadow: 0 0 0 4px var(--accent-soft, rgba(0, 217, 255, 0.16));
+  border-color: var(--accent, #27ADC4);
+  box-shadow: 0 0 0 4px var(--accent-soft, rgba(39, 173, 196, 0.16));
   transform: translateY(-1px);
 }
 
 .am-cmd:active { transform: translateY(0); }
 
 .am-cmd__prompt {
-  color: var(--accent, #00D9FF);
+  color: var(--accent, #27ADC4);
   padding: 10px 0 10px 14px;
   font-weight: 600;
 }
@@ -90,9 +90,9 @@
   align-items: center;
   gap: 6px;
   padding: 10px 14px;
-  border-left: 1px solid var(--line-2, var(--line-strong, rgba(0, 217, 255, 0.30)));
-  background: rgba(0, 217, 255, 0.04);
-  color: var(--accent, #00D9FF);
+  border-left: 1px solid var(--line-2, var(--line-strong, rgba(39, 173, 196, 0.30)));
+  background: rgba(39, 173, 196, 0.04);
+  color: var(--accent, #27ADC4);
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -101,8 +101,8 @@
 }
 
 .am-cmd:hover .am-cmd__action {
-  background: rgba(0, 217, 255, 0.10);
-  border-left-color: var(--accent-line, rgba(0, 217, 255, 0.40));
+  background: rgba(39, 173, 196, 0.10);
+  border-left-color: var(--accent-line, rgba(39, 173, 196, 0.40));
 }
 
 .am-cmd__icon-copy { display: inline-block; }
@@ -110,7 +110,7 @@
 
 .am-cmd.copied {
   border-color: oklch(0.78 0.13 145);
-  background: rgba(0, 217, 255, 0.04);
+  background: rgba(39, 173, 196, 0.04);
 }
 .am-cmd.copied .am-cmd__action {
   color: oklch(0.78 0.13 145);

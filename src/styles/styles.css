@@ -3,36 +3,56 @@
    Adapted from the Claude Design handoff bundle.
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+/* Metric-adjusted fallbacks. The fallback metrics are tuned (via
+   size-adjust / ascent-override / descent-override) to match the
+   loaded web font's vertical box, so the swap from fallback to
+   Inter / JetBrains Mono produces no visible reflow — kills the
+   font-swap CLS on the hero before web fonts finish loading. */
+@font-face {
+  font-family: 'Inter Fallback';
+  src: local('Arial');
+  size-adjust: 107.4%;
+  ascent-override: 90.2%;
+  descent-override: 22.48%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'JetBrains Mono Fallback';
+  src: local('Courier New');
+  size-adjust: 111.2%;
+  ascent-override: 90.1%;
+  descent-override: 21.1%;
+  line-gap-override: 0%;
+}
 
 :root {
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: 'Inter', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --display: var(--mono);
   --body: var(--sans);
 
   /* Palette synced to docs.css (abyssal terminal brutalism — electric cyan
      on steel). The landing uses these same values so the brand reads as
      one system across pages. */
-  --accent:      #00D9FF;             /* docs --acid */
-  --accent-deep: #0099CC;             /* docs --acid-deep */
-  --accent-soft: rgba(0, 217, 255, 0.16);
-  --accent-line: rgba(0, 217, 255, 0.40);
-  --abyss:       #5DEFFF;             /* lighter cyan for prompts/accents */
+  --accent:      #27ADC4;             /* docs --acid */
+  --accent-deep: #1B8597;             /* docs --acid-deep */
+  --accent-soft: rgba(39, 173, 196, 0.16);
+  --accent-line: rgba(39, 173, 196, 0.40);
+  --abyss:       #5BC9DC;             /* lighter cyan for prompts/accents */
   --warn:        #FFC15C;
   --blood:       #FF5577;
 
-  --bg:        #070d14;               /* docs --bg */
-  --bg-2:      #0d1822;               /* docs --bg-2 */
-  --panel:     #15222e;               /* docs --bg-3 — card surface */
-  --panel-2:   #1f3140;               /* docs --bg-4 — raised surface */
-  --line:      rgba(0, 217, 255, 0.10);
-  --line-2:    rgba(0, 217, 255, 0.30);
+  --bg:        #050a12;               /* abyss — deeper near-black, blue undertone */
+  --bg-2:      #0C2132;               /* logo --deep-space-blue-2 */
+  --panel:     #173549;               /* logo --deep-space-blue (card surface) */
+  --panel-2:   #1F4258;               /* derived raised surface — one step above panel */
+  --line:      rgba(39, 173, 196, 0.10);
+  --line-2:    rgba(39, 173, 196, 0.30);
   --ink:       #e6eef5;               /* docs --fg */
   --ink-2:     #b3c4d4;               /* slightly brighter than docs --fg-dim for body copy */
   --ink-3:     #8fa6bc;               /* docs --fg-dim */
   --ink-4:     #56708a;               /* docs --fg-muted */
-  --tag-bg:    rgba(0, 217, 255, 0.06);
+  --tag-bg:    rgba(39, 173, 196, 0.06);
   --kbd-bg:    #0d1822;
   --shadow:    0 1px 0 rgba(255,255,255,.04) inset, 0 30px 60px -20px rgba(0,0,0,.5);
 }
@@ -153,6 +173,35 @@ img { max-width: 100%; display: block; }
 }
 
 /* official-style GitHub button */
+/* Inline nav links — sit between brand and the GitHub button. Mono
+   small caps so they read as quiet utility nav, not body copy. */
+.am-nav-links {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+  margin: 0 0 0 28px;
+  padding: 0;
+}
+.am-nav-links a {
+  display: inline-block;
+  padding: 6px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+  text-decoration: none;
+  border-radius: 4px;
+  transition: color .12s, background .12s;
+}
+.am-nav-links a:hover {
+  color: var(--accent);
+  background: rgba(39, 173, 196, 0.06);
+}
+@media (max-width: 720px) {
+  .am-nav-links { display: none; }   /* GitHub button stays; full menu would crowd at phone widths */
+}
+
 .am-gh-btn {
   display: inline-flex; align-items: stretch;
   font-family: var(--mono); font-size: 12px; font-weight: 600;
@@ -336,7 +385,7 @@ img { max-width: 100%; display: block; }
   gap: 6px;
   padding: 10px 14px;
   border-left: 1px solid var(--line-2);
-  background: rgba(0, 217, 255, 0.04);
+  background: rgba(39, 173, 196, 0.04);
   color: var(--accent);
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -346,7 +395,7 @@ img { max-width: 100%; display: block; }
 }
 
 .am-cmd:hover .am-cmd__action {
-  background: rgba(0, 217, 255, 0.10);
+  background: rgba(39, 173, 196, 0.10);
   border-left-color: var(--accent-line);
 }
 
@@ -356,7 +405,7 @@ img { max-width: 100%; display: block; }
 
 .am-cmd.copied {
   border-color: oklch(0.78 0.13 145);
-  background: rgba(0, 217, 255, 0.04);
+  background: rgba(39, 173, 196, 0.04);
 }
 .am-cmd.copied .am-cmd__action {
   color: oklch(0.78 0.13 145);
@@ -381,8 +430,8 @@ img { max-width: 100%; display: block; }
 .am-h1 {
   font-family: var(--display);
   font-weight: 600;
-  font-size: clamp(40px, 5.5vw, 64px);
-  line-height: 1.04;
+  font-size: clamp(36px, 4.6vw, 56px);
+  line-height: 1.05;
   letter-spacing: -0.02em;
   margin: 0;
   text-wrap: balance;
@@ -498,7 +547,7 @@ img { max-width: 100%; display: block; }
   height: 60vw;
   max-width: 720px;
   max-height: 720px;
-  background: radial-gradient(circle, rgba(0, 217, 255, 0.10) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(39, 173, 196, 0.10) 0%, transparent 60%);
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
@@ -512,31 +561,21 @@ img { max-width: 100%; display: block; }
   filter:
     brightness(0) saturate(100%)
     invert(82%) sepia(48%) saturate(2700%) hue-rotate(155deg) brightness(102%) contrast(101%)
-    drop-shadow(0 0 12px rgba(0, 217, 255, 0.45));
+    drop-shadow(0 0 12px rgba(39, 173, 196, 0.45));
   opacity: 0.16;
-  will-change: transform;
-  transform: translateZ(0);
 }
 
-/* Each orbit gets its own resting position + slow drift. Animations only translate
-   (GPU-friendly) and run "alternate" so they breathe instead of looping abruptly. */
-.am-hero-orbit .orbit-1 { top:  6%; left:  4%; animation: am-orbit-a 24s ease-in-out -2s infinite alternate; }
-.am-hero-orbit .orbit-2 { top: 18%; left: 38%; animation: am-orbit-b 28s ease-in-out -8s infinite alternate; }
-.am-hero-orbit .orbit-3 { top:  4%; right: 22%; animation: am-orbit-c 32s ease-in-out -5s infinite alternate; }
-.am-hero-orbit .orbit-4 { bottom: 18%; left: 12%; animation: am-orbit-d 30s ease-in-out -12s infinite alternate; }
-.am-hero-orbit .orbit-5 { top: 60%; left: 46%; animation: am-orbit-e 26s ease-in-out -3s infinite alternate; }
-.am-hero-orbit .orbit-6 { top: 36%; right: 6%; animation: am-orbit-f 22s ease-in-out -9s infinite alternate; }
-.am-hero-orbit .orbit-7 { bottom: 8%; right: 18%; animation: am-orbit-g 34s ease-in-out -1s infinite alternate; }
-.am-hero-orbit .orbit-8 { top: 48%; left: 8%; animation: am-orbit-h 28s ease-in-out -14s infinite alternate; }
-
-@keyframes am-orbit-a { from { transform: translate(0, 0); } to { transform: translate( 18px, -22px); } }
-@keyframes am-orbit-b { from { transform: translate(0, 0); } to { transform: translate(-14px,  20px); } }
-@keyframes am-orbit-c { from { transform: translate(0, 0); } to { transform: translate( 22px,  16px); } }
-@keyframes am-orbit-d { from { transform: translate(0, 0); } to { transform: translate(-20px, -14px); } }
-@keyframes am-orbit-e { from { transform: translate(0, 0); } to { transform: translate( 14px, -28px); } }
-@keyframes am-orbit-f { from { transform: translate(0, 0); } to { transform: translate(-22px, -10px); } }
-@keyframes am-orbit-g { from { transform: translate(0, 0); } to { transform: translate( 18px,  20px); } }
-@keyframes am-orbit-h { from { transform: translate(0, 0); } to { transform: translate(-16px,  22px); } }
+/* Each orbit gets a fixed resting position. Motion was tried both ways
+   (sub-pixel drift and a bigger elliptical loop) and neither read well —
+   the SVGs work better as static atmosphere. */
+.am-hero-orbit .orbit-1 { top:  6%; left:  4%; }
+.am-hero-orbit .orbit-2 { top: 18%; left: 38%; }
+.am-hero-orbit .orbit-3 { top:  4%; right: 22%; }
+.am-hero-orbit .orbit-4 { bottom: 18%; left: 12%; }
+.am-hero-orbit .orbit-5 { top: 60%; left: 46%; }
+.am-hero-orbit .orbit-6 { top: 36%; right: 6%; }
+.am-hero-orbit .orbit-7 { bottom: 8%; right: 18%; }
+.am-hero-orbit .orbit-8 { top: 48%; left: 8%; }
 
 /* Pull orbits tighter and dim them on small screens so they don't crowd the hero */
 @media (max-width: 800px) {
@@ -546,24 +585,24 @@ img { max-width: 100%; display: block; }
   .am-hero-orbit .orbit-8 { display: none; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .am-hero-orbit .orbit { animation: none; }
-}
 .am-hero-grid {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  /* Fixed terminal column (540px) so script lines never wrap — wrapping
+     would change the terminal's height/width and shift the hero. Text
+     column flexes around it. */
+  grid-template-columns: minmax(0, 1.1fr) 540px;
   gap: 48px;
   align-items: center;
 }
-@media (max-width: 960px) {
+@media (max-width: 1080px) {
   .am-hero-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
   .am-hero { padding: 56px 0 48px; }
 }
 .am-hero h1 {
-  text-wrap: pretty;
-  max-width: 16ch;
+  text-wrap: balance;            /* split into roughly equal lines instead of greedy fill */
+  max-width: 22ch;               /* lets the headline breathe to ~2 lines instead of 4 */
 }
 .am-hero h1 .accent { color: var(--accent); }
 @media (max-width: 960px) {
@@ -611,9 +650,17 @@ img { max-width: 100%; display: block; }
   margin-left: 6px;
 }
 .am-term-body {
-  padding: 18px 18px 22px;
+  padding: 18px 18px 10px;
   color: var(--ink-2);
-  min-height: 360px;
+  /* Reserve enough vertical room for the full SCRIPT animation at its
+     tallest (~465px on desktop with the trimmed bottom padding).
+     Without this, the box grows as JS types lines in and snaps back on
+     each loop reset, shifting the whole hero. Phone-width fallback
+     below leaves room for line wraps. */
+  min-height: 490px;
+}
+@media (max-width: 720px) {
+  .am-term-body { min-height: 560px; }
 }
 .am-term-line { white-space: pre; }
 .am-term .prompt { color: var(--accent); }
@@ -713,7 +760,7 @@ img { max-width: 100%; display: block; }
   background: var(--accent-soft);
   color: var(--accent);
   border: 1px solid var(--accent-line);
-  box-shadow: 0 0 16px rgba(0, 217, 255, 0.18);
+  box-shadow: 0 0 16px rgba(39, 173, 196, 0.18);
 }
 .am-prob-card.good .head { color: var(--accent); }
 .am-prob-card h3 {
@@ -805,7 +852,7 @@ img { max-width: 100%; display: block; }
   transform: translateY(-2px);
   box-shadow:
     0 12px 28px -10px rgba(0, 0, 0, 0.5),
-    0 0 22px -6px rgba(0, 217, 255, 0.15);
+    0 0 22px -6px rgba(39, 173, 196, 0.15);
 }
 
 .am-loop-step__n {
@@ -867,7 +914,7 @@ img { max-width: 100%; display: block; }
   transform: translateY(-2px);
   box-shadow:
     0 12px 28px -10px rgba(0, 0, 0, 0.5),
-    0 0 22px -6px rgba(0, 217, 255, 0.18);
+    0 0 22px -6px rgba(39, 173, 196, 0.18);
 }
 
 .am-cat__head {
@@ -1136,7 +1183,7 @@ a.am-integ-card:hover .am-integ-foot .arrow { transform: translate(2px, -2px); }
 }
 .am-diff__line.good span {
   color: var(--accent);
-  text-shadow: 0 0 8px rgba(0, 217, 255, 0.4);
+  text-shadow: 0 0 8px rgba(39, 173, 196, 0.4);
 }
 
 @media (max-width: 720px) {
@@ -1489,7 +1536,7 @@ a.am-integ-card:hover .am-integ-foot .arrow { transform: translate(2px, -2px); }
   padding: 56px 0 48px;
   border-bottom: 1px solid var(--line);
   background:
-    radial-gradient(ellipse 80% 100% at 50% 0%, rgba(0, 217, 255, 0.06), transparent 70%),
+    radial-gradient(ellipse 80% 100% at 50% 0%, rgba(39, 173, 196, 0.06), transparent 70%),
     transparent;
 }
 
@@ -1655,6 +1702,19 @@ html.js-ready .am-reveal {
 html.js-ready .am-reveal.in {
   opacity: 1;
   transform: none;
+}
+
+/* Above-the-fold hero content must never be hidden by the reveal —
+   if it is, the LCP algorithm ignores the H1 (opacity: 0) and instead
+   blames the orbit decoration, then waits until main.js runs and adds
+   `.in` before reporting LCP. That pushes P90/P99 into the multi-second
+   range on slow mobile. Keep the class for layout/JS observation, but
+   skip the hidden state for hero reveals. */
+html.js-ready .am-hero .am-reveal,
+html.js-ready .am-hero .am-reveal.in {
+  opacity: 1;
+  transform: none;
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

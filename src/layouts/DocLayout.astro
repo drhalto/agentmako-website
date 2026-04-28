@@ -40,6 +40,18 @@ const {
     ogType={ogType}
   />
   {breadcrumbs && <BreadcrumbJsonLd items={breadcrumbs} />}
+  {/* js-ready before first paint — keeps reveal animations from
+      flashing visible-then-hidden when main.js eventually runs. */}
+  <script is:inline>document.documentElement.classList.add('js-ready');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  {/* Load web fonts in parallel with the main stylesheet instead of
+      via @import inside docs.css (which serializes the font request
+      behind the CSS download and amplifies font-swap CLS). */}
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,300..900,0..100,0..1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap"
+  />
   <slot name="head" />
 </head>
 <body>
