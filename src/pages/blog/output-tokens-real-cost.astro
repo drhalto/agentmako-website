@@ -242,9 +242,19 @@ and error.</p>
 MCP server that indexes a repo into SQLite and exposes typed context
 tools to coding agents. It's Apache-2.0, runs entirely locally, and
 wires into Claude Code, Cursor, Cline, Codex, etc. via standard MCP.
-<code>npx -y agentmako mcp</code> is the install. The frontier model
-keeps doing what it's good at; the local layer makes sure you only pay
-for that part.</p>
+The frontier model keeps doing what it's good at; the local layer makes
+sure you only pay for that part.</p>
+
+<pre><code>npm install -g agentmako
+agentmako connect .</code></pre>
+
+<p>Then point your MCP client at it:</p>
+
+<pre><code>&lcub;
+  "mcpServers": &lcub;
+    "agentmako": &lcub; "command": "agentmako", "args": ["mcp"] &rcub;
+  &rcub;
+&rcub;</code></pre>
 
 <p>Output-token spend is the part of the bill nobody talks about.
 Once you start tracking it separately, the architecture conversation
