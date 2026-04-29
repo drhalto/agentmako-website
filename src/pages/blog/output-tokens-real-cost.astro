@@ -1,0 +1,234 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="Output Tokens Are the Real Cost of Coding Agents"
+  description="Most agent-cost discussion focuses on input tokens. The expensive half of the bill is the output tokens your agent burns rediscovering your repo every turn. Here's the math, the mechanism, and why typed MCP tools beat raw grep on both ends."
+  canonicalPath="/blog/output-tokens-real-cost.html"
+  publishedAt="2026-04-29"
+  readingTimeMin={7}
+  tags={["tokens", "cost", "mcp"]}
+  ogImageAlt="agentmako — local-first MCP server for AI coding agents"
+>
+
+<p class="blog-post__lede">
+  Most of the agent-cost discussion focuses on input tokens — how long is your
+  prompt, how much context does the model have to read. That's the cheap half
+  of the bill. The expensive half is the <strong>output tokens your agent
+  burns rediscovering your repo every turn</strong>. The most interesting
+  consequence isn't saving money; it's that the agent reaches the actual
+  problem faster, before context decay sets in.
+</p>
+
+<h2>The framing everyone uses</h2>
+
+<p>Pricing pages have trained us to think about input tokens. Anthropic's
+Claude Sonnet 4.5 is $3 per million input tokens. OpenAI's o3 is $2 in. So
+the obvious cost-control move is "send less context" — prune your system
+prompt, summarize chat history, RAG instead of dumping the whole repo.</p>
+
+<p>This is correct as far as it goes. It's just the wrong cost center to
+optimize first.</p>
+
+<h2>The bill you're not looking at</h2>
+
+<p>On the same models, output tokens cost ~5× input. Sonnet 4.5: $15/MTok
+out vs $3/MTok in. o3: $8/MTok out vs $2/MTok in. So a session that sends
+50K input tokens and generates 10K output tokens costs the same on output
+as a session that sends 250K input tokens and generates zero output.</p>
+
+<p>Now look at what an agent actually <em>does</em> during a coding task.
+Here's the typical flow when the agent doesn't know your codebase:</p>
+
+<ol>
+  <li>Read the user's request, decide it needs to inspect the repo. <strong>Output tokens.</strong></li>
+  <li>Plan which paths to grep, in plain text reasoning. <strong>Output tokens.</strong></li>
+  <li>Issue 4–8 tool calls (grep, glob, read). Each tool call has framing overhead. <strong>Output tokens.</strong></li>
+  <li>Stream back raw results — usually a few KB per call. <strong>Input tokens</strong> (cheap).</li>
+  <li>Reason over the results, pick promising files, summarize structure. <strong>Output tokens.</strong></li>
+  <li>Read those files in full. <strong>Input tokens.</strong></li>
+  <li>Form a hypothesis about what to change. <strong>Output tokens.</strong></li>
+  <li><em>Finally</em> begin the actual change.</li>
+</ol>
+
+<p>Steps 1 through 7 are entirely about reconstructing context. The model
+is generating tokens — <em>expensive</em> tokens — not to do the user's
+task, but to figure out where in the codebase the user's task lives. The
+senior engineer on that team has the answer in their head: "the auth flow
+is in <code>src/server/auth/</code>, it touches the <code>sessions</code>
+table, the relevant tests are in <code>auth-flow.test.ts</code>." The
+agent regenerates that knowledge from raw text on every single turn.</p>
+
+<h2>The same task, with structured context</h2>
+
+<p>Now imagine the agent had a single tool that returns this directly:</p>
+
+<pre><code>&lcub;
+  "task": "fix the broken auth callback route",
+  "candidates": [
+    &lcub;
+      "path": "src/server/auth/callback.ts",
+      "kind": "route",
+      "reason": "matches request keywords + recent diagnostics on this file"
+    &rcub;,
+    &lcub; "path": "src/server/auth/session.ts", "kind": "support", "reason": "imported by callback.ts" &rcub;
+  ],
+  "facts": [
+    &lcub; "kind": "table", "name": "sessions", "rls": "enabled" &rcub;,
+    &lcub; "kind": "diagnostic", "tool": "tsc", "message": "..." &rcub;
+  ],
+  "tests": ["test/auth-flow.test.ts"]
+&rcub;</code></pre>
+
+<p>The agent calls one tool. Gets a typed, ranked, deduplicated context
+packet. The model's "discovery" output is one tool call instead of six,
+and the model reads structured data instead of 20 KB of grep text.</p>
+
+<p>This isn't hypothetical. It's exactly what an MCP (Model Context
+Protocol) server can return when it's been told to behave like a senior
+dev rather than a search engine.</p>
+
+<h2>The math, on a real task</h2>
+
+<p>I ran the same task — refactor an auth callback route on a ~700-file
+repo — two ways. Once with an agent that only had grep / glob / read
+available. Once with an agent that had a structured
+<code>context_packet</code> MCP tool first.</p>
+
+<table class="blog-post__table">
+  <thead>
+    <tr>
+      <th></th>
+      <th>Grep-walk</th>
+      <th>Typed MCP tool</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Tool calls before first edit</td>
+      <td>~14</td>
+      <td>2</td>
+    </tr>
+    <tr>
+      <td>Cumulative input tokens</td>
+      <td>~38 K</td>
+      <td>~6 K</td>
+    </tr>
+    <tr>
+      <td>Output tokens during discovery</td>
+      <td>~8 K</td>
+      <td>~1.2 K</td>
+    </tr>
+    <tr>
+      <td>Time-to-first-edit</td>
+      <td>~90 s</td>
+      <td>~15 s</td>
+    </tr>
+    <tr>
+      <td>Final answer quality</td>
+      <td>comparable</td>
+      <td>comparable</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The output-token delta is what matters: 8 K vs 1.2 K, at $15/MTok, is
+$0.12 vs $0.018 — almost 7× cheaper on the part of the bill that's
+expensive. Stack that across 50 tasks a day and the math gets serious for
+power users.</p>
+
+<p>But the dollar figure isn't the headline. The headline is
+<strong>time-to-first-edit dropped from 90 seconds to 15</strong>. The
+agent stopped narrating its discovery process and started doing the
+user's actual task. Quality of decisions tracks quality of context, and
+quality of context decays as more rediscovery noise accumulates. Shorter
+discovery is better discovery.</p>
+
+<h2>Why typed tools win on output</h2>
+
+<p>The reason this works is mechanical:</p>
+
+<ol>
+  <li><strong>Tool-call framing has fixed overhead.</strong> Every tool
+  call costs ~80–150 output tokens just for the JSON envelope, even if
+  the call body is empty. Six tool calls vs one: that's ~500 tokens just
+  in framing.</li>
+
+  <li><strong>Reasoning over raw text is verbose.</strong> When the model
+  sees grep output, it generates output tokens summarizing what it found.
+  When it sees a typed object with <code>reason</code> fields and
+  <code>kind</code> annotations, it doesn't need to summarize — it can act.</li>
+
+  <li><strong>Models talk to themselves.</strong> Plan-then-act prompts
+  produce a lot of "let me think about which files to look at" output.
+  With a typed tool that ranks candidates upfront, the planning output
+  collapses.</li>
+
+  <li><strong>Indexing pays once, queries pay zero.</strong> A local
+  index does the expensive parsing/tokenizing/symbol-extraction once.
+  Every subsequent query reads from SQLite in milliseconds. Grep does
+  the equivalent work over and over per session.</li>
+</ol>
+
+<h2>When this doesn't apply</h2>
+
+<p>I'd be lying if I said this is universal. Cases where typed context
+tools don't help:</p>
+
+<ul>
+  <li><strong>Tiny repos.</strong> Under ~50 files, grep is fast enough
+  and the indexing overhead exceeds the savings.</li>
+  <li><strong>One-shot tasks</strong> that don't touch the codebase
+  ("write me a regex for…"). The index isn't relevant.</li>
+  <li><strong>Bad indexing.</strong> If your tool returns lower-signal
+  results than grep, you've made it worse with extra steps. Index quality
+  is everything.</li>
+  <li><strong>Agents that ignore the structured tools.</strong> This is
+  real — without explicit prompt nudging, some agents will reach for
+  grep out of habit. Skill files / system prompts that teach the agent
+  <em>when</em> to use which tool matter as much as the tool itself.</li>
+  <li><strong>Models that don't reason well over JSON.</strong> Not
+  really an issue with frontier models in 2026, but worth noting if
+  you're running smaller open models.</li>
+</ul>
+
+<h2>The general principle</h2>
+
+<p>Context engineering is moving from "fit more into the window" to
+"send better-curated context." The cost gradient supports this: input
+tokens are getting cheaper (Sonnet 4.5 is half the input price of GPT-4
+from 2023), and output tokens are getting more expensive in real terms
+because reasoning models burn far more of them. The optimal architecture
+is one that <strong>answers the agent's question in one curated tool
+call</strong> instead of letting it discover the answer through trial
+and error.</p>
+
+<p>Practically, this means:</p>
+
+<ul>
+  <li>Build (or use) tools that return <em>facts</em>, not <em>raw
+  documents</em>. A "the auth route is here, it touches these tables,
+  these tests cover it" answer beats a 20 KB grep dump every time.</li>
+  <li>Make your tools return rankings and reasons, not just lists. The
+  agent can short-circuit further exploration if it trusts the ranking.</li>
+  <li>Index once, query many. SQLite is more than fast enough; you don't
+  need a vector store for most code-intelligence questions.</li>
+  <li>Measure output tokens separately from input tokens. If you can't
+  see the cost, you can't optimize it.</li>
+</ul>
+
+<h2>What I'm using</h2>
+
+<p>I built <a href="/">agentmako</a> to do exactly this — a local-first
+MCP server that indexes a repo into SQLite and exposes typed context
+tools to coding agents. It's Apache-2.0, runs entirely locally, and
+wires into Claude Code, Cursor, Cline, Codex, etc. via standard MCP.
+<code>npx -y agentmako mcp</code> is the install. The frontier model
+keeps doing what it's good at; the local layer makes sure you only pay
+for that part.</p>
+
+<p>Output-token spend is the part of the bill nobody talks about.
+Once you start tracking it separately, the architecture conversation
+changes.</p>
+
+</BlogLayout>
