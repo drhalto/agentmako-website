@@ -23,19 +23,33 @@ import BlogLayout from '../../layouts/BlogLayout.astro';
 <h2>The framing everyone uses</h2>
 
 <p>Pricing pages have trained us to think about input tokens. Anthropic's
-Claude Sonnet 4.5 is $3 per million input tokens. OpenAI's o3 is $2 in. So
-the obvious cost-control move is "send less context" — prune your system
-prompt, summarize chat history, RAG instead of dumping the whole repo.</p>
+Claude Sonnet 4.6 is $3 per million input tokens. OpenAI's GPT-5.5 is
+$5/MTok input. So the obvious cost-control move is "send less context" —
+prune your system prompt, summarize chat history, RAG instead of dumping
+the whole repo.</p>
 
 <p>This is correct as far as it goes. It's just the wrong cost center to
 optimize first.</p>
 
 <h2>The bill you're not looking at</h2>
 
-<p>On the same models, output tokens cost ~5× input. Sonnet 4.5: $15/MTok
-out vs $3/MTok in. o3: $8/MTok out vs $2/MTok in. So a session that sends
-50K input tokens and generates 10K output tokens costs the same on output
-as a session that sends 250K input tokens and generates zero output.</p>
+<p>On the same models, output tokens cost 5–6× input:</p>
+
+<ul>
+  <li><strong>Sonnet 4.6:</strong> $3 in / $15 out per MTok (5×)</li>
+  <li><strong>Opus 4.7:</strong> $5 in / $25 out per MTok (5×)</li>
+  <li><strong>GPT-5.5:</strong> $5 in / $30 out per MTok (6×) — released
+  Apr 23, 2026 with input <em>and</em> output prices doubled vs. GPT-5</li>
+  <li><strong>GPT-5.5 Pro:</strong> $30 in / $180 out per MTok (6×)</li>
+</ul>
+
+<p>So a session that sends 50K input tokens and generates 10K output
+tokens costs the same on output as a session that sends 300K input
+tokens and generates zero output. And the gap got <em>wider</em>, not
+narrower, with the April 2026 model drops — GPT-5.5 doubled prices on
+both ends, and Opus 4.7 ships with a new tokenizer that can produce up
+to 35% more tokens for the same input text. Output volume per task is
+trending up, not down.</p>
 
 <p>Now look at what an agent actually <em>does</em> during a coding task.
 Here's the typical flow when the agent doesn't know your codebase:</p>
@@ -132,10 +146,13 @@ available. Once with an agent that had a structured
   </tbody>
 </table>
 
-<p>The output-token delta is what matters: 8 K vs 1.2 K, at $15/MTok, is
-$0.12 vs $0.018 — almost 7× cheaper on the part of the bill that's
-expensive. Stack that across 50 tasks a day and the math gets serious for
-power users.</p>
+<p>The output-token delta is what matters: 8 K vs 1.2 K. On Sonnet 4.6
+($15/MTok out) that's $0.12 vs $0.018. On Opus 4.7 ($25/MTok out) it's
+$0.20 vs $0.030. On GPT-5.5 ($30/MTok out) it's $0.24 vs $0.036. Almost
+7× cheaper on the part of the bill that's expensive — and that 7× ratio
+is constant across providers because it's about <em>how many output
+tokens get generated</em>, not the per-token rate. Stack that across 50
+tasks a day and the math gets serious for power users.</p>
 
 <p>But the dollar figure isn't the headline. The headline is
 <strong>time-to-first-edit dropped from 90 seconds to 15</strong>. The
@@ -195,11 +212,13 @@ tools don't help:</p>
 <h2>The general principle</h2>
 
 <p>Context engineering is moving from "fit more into the window" to
-"send better-curated context." The cost gradient supports this: input
-tokens are getting cheaper (Sonnet 4.5 is half the input price of GPT-4
-from 2023), and output tokens are getting more expensive in real terms
-because reasoning models burn far more of them. The optimal architecture
-is one that <strong>answers the agent's question in one curated tool
+"send better-curated context." The cost gradient supports this: prompt
+caching now handles the input-token problem reasonably well (90% off on
+cached input), but reasoning models burn far more output tokens per
+task than chat models did, and providers are <em>raising</em> output
+prices — GPT-5.5 doubled them in April 2026, and Opus 4.7's tokenizer
+inflates output volume on top of that. The optimal architecture is one
+that <strong>answers the agent's question in one curated tool
 call</strong> instead of letting it discover the answer through trial
 and error.</p>
 
