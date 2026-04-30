@@ -1,5 +1,6 @@
 ---
 import DocLayout from '../../../layouts/DocLayout.astro';
+import { agentmakoMeta } from '../../../lib/agentmakoMeta';
 ---
 <DocLayout
   title="What is the Model Context Protocol (MCP)? · agentmako"
@@ -140,10 +141,11 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <p>agentmako is a local-first MCP server purpose-built for code
           intelligence. It indexes your repo into local SQLite, snapshots
           your Postgres or Supabase schema (when configured), tracks
-          diagnostics across runs, and exposes <strong>80+ typed tools</strong>
-          ranging from <code>context_packet</code> (vague request → ranked
-          context) to <code>route_trace</code> (URL → handler → schema) to
-          <code>db_rls</code> (table → row-level-security policies).</p>
+          diagnostics across runs, and exposes <strong>{agentmakoMeta.toolCountLabel}</strong>
+          ranging from <code>mako_help</code> (task → workflow recipe) to
+          <code>context_packet</code> (vague request → ranked context) to
+          <code>file_preflight</code> (file → findings, freshness, conventions)
+          to <code>db_rls</code> (table → row-level-security policies).</p>
 
           <p>The MCP layer is what makes those tools available everywhere.
           The agent doesn't care which language they're written in, where

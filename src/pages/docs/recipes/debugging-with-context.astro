@@ -3,7 +3,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
   title="How to debug a tricky bug with context_packet · agentmako"
-  description="A walkthrough recipe — debug a generic 'hydration error' by starting from context_packet, narrowing with reef_inspect and freshness, and pinning the actual cause."
+  description="A walkthrough recipe — debug a generic 'hydration error' by starting from context_packet, narrowing with file_preflight, reef_inspect, and freshness, and pinning the actual cause."
   canonicalPath="/docs/recipes/debugging-with-context.html"
   ogImage="/assets/og.png"
   ogImageAlt="agentmako — debugging recipe."
@@ -17,12 +17,13 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       <strong>TL;DR:</strong> Hydration errors, "this only fails in
       production", "intermittent role check failure" — vague bugs eat
       hours when the agent grep-loops. Start from
-      <code>context_packet</code>, branch into <code>reef_inspect</code>
-      and <code>trace_error</code>, and verify with
-      <code>evidence_confidence</code> before editing. Tools used:
+      <code>context_packet</code>, branch into <code>file_preflight</code>,
+      <code>reef_inspect</code>, and <code>trace_error</code>, then verify
+      with <code>verification_state</code> before editing. Tools used:
       <code>context_packet</code>, <code>reef_scout</code>,
-      <code>reef_inspect</code>, <code>trace_error</code>,
-      <code>live_text_search</code>, <code>evidence_confidence</code>.
+      <code>file_preflight</code>, <code>reef_inspect</code>,
+      <code>trace_error</code>, <code>live_text_search</code>,
+      <code>verification_state</code>.
     </p>
 </header>
 <section class="section">
@@ -62,7 +63,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <li><strong>risks</strong>: "this layout reads from
           <code>manager_district</code>; RLS-sensitive."</li>
           <li><strong>recommendedHarnessPattern</strong>: "read primary
-          → call <code>file_findings</code> on layout.tsx → check
+          → call <code>file_preflight</code> on layout.tsx → check
           freshness."</li>
         </ul>
         <p>The activeFindings line is gold — someone already looked at
@@ -71,20 +72,21 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       </section>
 
       <section>
-        <h2>Step 2 — verify the finding is current</h2>
+        <h2>Step 2 — run <code>file_preflight</code> on the likely file</h2>
         <p>The Reef finding might be from three weeks ago and already
-        fixed. Check:</p>
+        fixed. Ask for the file's pre-edit packet:</p>
         <pre><code>&lcub;
-  "tool": "evidence_confidence",
+  "tool": "file_preflight",
   "args": &lcub;
-    "subjectKind": "finding",
-    "subjectId": "&lt;finding id from step 1&gt;"
+    "filePath": "app/dashboard/manager/[districtId]/layout.tsx",
+    "limit": 50
   &rcub;
 &rcub;</code></pre>
-        <p>Returns a freshness label. If it's <code>contradicted</code>,
-        the file changed and the finding may be obsolete — re-run
-        <code>lint_files</code> on the layout. If it's
-        <code>fresh_indexed</code>, the suspicion is still valid.</p>
+        <p>Returns durable findings, recent diagnostic runs that covered
+        the file, stale diagnostic flags, conventions, and ack history.
+        If it reports a stale source, let the daemon catch up or run
+        <code>diagnostic_refresh</code> for that source before trusting
+        the finding.</p>
       </section>
 
       <section>
@@ -126,10 +128,12 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       </section>
 
       <section>
-        <h2>Step 5 — record the finding (optional)</h2>
-        <p>If you discovered a real pattern, record it via
-        <code>finding_ack</code> — but only if the finding is reviewed
-        and intentional. Don't ack noise.</p>
+        <h2>Step 5 — verify and mine the pattern</h2>
+        <p>After the fix, call <code>verification_state</code> for the
+        changed files. If this was a repeatable structural bug, use
+        <code>extract_rule_template</code> on the fix commit to draft a
+        YAML rule, then validate it with <code>rule_pack_validate</code>.
+        Ack findings only when they are reviewed and intentional.</p>
       </section>
 
       <section>
@@ -148,11 +152,12 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <ul>
           <li><code>context_packet</code> — vague request → ranked context.</li>
           <li><code>reef_scout</code> — broader scout packet of facts/findings/rules.</li>
+          <li><code>file_preflight</code> — pre-edit findings, diagnostic freshness, conventions, and acks.</li>
           <li><code>reef_inspect</code> — full evidence trail for one file/subject.</li>
           <li><code>trace_error</code> — find throw/catch sites for an error term.</li>
           <li><code>live_text_search</code> — exact current text on disk.</li>
-          <li><code>evidence_confidence</code> — freshness label for one piece of evidence.</li>
-          <li><code>file_findings</code> — durable findings on a file.</li>
+          <li><code>verification_state</code> — confirms current diagnostics cover changed files.</li>
+          <li><code>extract_rule_template</code> — propose a reusable YAML rule from a fix diff.</li>
           <li><code>lint_files</code> — Mako rule-pack diagnostics.</li>
         </ul>
       </section>

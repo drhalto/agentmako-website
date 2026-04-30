@@ -3,7 +3,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
   title="What is the Reef Engine? · agentmako"
-  description="Reef is agentmako's durable fact and finding layer — keeps facts, findings, freshness, and acks across sessions so the agent doesn't re-derive them every turn."
+  description="Reef is agentmako's durable fact and finding layer — keeps facts, findings, freshness, acks, conventions, and diagnostic runs live enough for agent workflows."
   canonicalPath="/docs/concepts/reef-engine.html"
   ogImage="/assets/og.png"
   ogImageAlt="agentmako — Reef Engine concept explainer."
@@ -16,8 +16,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
     <p class="doc-hero__sub">
       <strong>The Reef Engine is agentmako's durable fact and finding
       layer</strong> — it keeps indexed facts, lint/audit findings,
-      diagnostic runs, freshness labels, and review acknowledgements in
-      local SQLite so an AI coding agent does not have to re-derive the
+      diagnostic runs, conventions, freshness labels, and review
+      acknowledgements in local SQLite. In MCP sessions a local daemon
+      watches edits and refreshes scoped facts/diagnostics in the
+      background so an AI coding agent does not have to re-derive the
       same project knowledge every turn.
     </p>
 </header>
@@ -38,8 +40,36 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           the work over.</p>
         </section>
 
+        <section id="v3-runtime">
+          <h2>Recent Reef runtime updates</h2>
+          <p>Reef now behaves more like a live project context engine
+          during agent sessions. The MCP server lazy-starts the local
+          daemon on first Reef-backed request, the watcher notices file
+          changes, and scoped refresh work updates the pieces that changed
+          instead of forcing agents to refresh the whole project by hand.</p>
+
+          <ul>
+            <li><strong>Background freshness</strong> keeps changed files
+            and file-scoped diagnostics moving toward fresh in long-running
+            MCP sessions.</li>
+            <li><strong><code>file_preflight</code></strong> composes file
+            findings, diagnostic stale flags, conventions, recent runs, and
+            ack history into one pre-edit read.</li>
+            <li><strong><code>reef_diff_impact</code></strong> answers
+            "what could my working-tree diff affect?" using overlay facts,
+            import impact, active caller findings, and conventions.</li>
+            <li><strong>Stable alignment findings</strong> persist
+            query-time alignment diagnostics into Reef with identities that
+            survive reruns and acknowledgements.</li>
+            <li><strong>Rule-pack growth</strong> adds hot-reloaded YAML
+            rules, primitive cross-file <code>canonicalHelper</code>
+            checks, validation, and <code>extract_rule_template</code>
+            from fix diffs.</li>
+          </ul>
+        </section>
+
         <section id="v2-runtime">
-          <h2>What changed in 0.2.0</h2>
+          <h2>Earlier Reef runtime updates</h2>
           <p>Reef is now a revisioned runtime, not just a table of
           durable findings. File events are folded into change sets,
           materialized through a single writer queue, and tracked with
@@ -225,6 +255,12 @@ import DocLayout from '../../../layouts/DocLayout.astro';
             <li><code>reef_inspect</code> — explain one file or subject:
             facts, findings, recent diagnostics. First call before editing
             a sensitive file.</li>
+            <li><code>file_preflight</code> — pre-edit packet for one file:
+            findings, diagnostic stale flags, conventions, recent runs, and
+            ack history.</li>
+            <li><code>reef_diff_impact</code> — mid-edit impact packet for
+            changed files, downstream callers, convention risks, and
+            possibly invalidated findings.</li>
             <li><code>reef_where_used</code> — quick where-used lookups
             over maintained import and dependency edges.</li>
             <li><code>reef_known_issues</code> — known current issues with
@@ -340,7 +376,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           the same file after a refactor. Are these new bugs or one
           existing pattern that the indexer rediscovered?</p>
           <ol>
-            <li>Call <code>file_findings</code> on the file. Look at
+            <li>Call <code>file_preflight</code> on the file. Look at
             <code>createdAt</code> vs <code>lastSeenAt</code> — if all 30
             were created in the same run, this is one pattern repeating,
             not 30 separate bugs.</li>
@@ -373,8 +409,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
             diagnostic runs still cover the current working-tree facts.</li>
             <li>If it returns <code>stale</code>, the green is from
             before recent edits — not a current guarantee.</li>
-            <li>Run <code>diagnostic_refresh</code> to bring it current
-            before relying on the result.</li>
+            <li>If the daemon has not caught up or the source failed,
+            run <code>diagnostic_refresh</code> to bring it current before
+            relying on the result.</li>
           </ol>
         </section>
 
@@ -408,7 +445,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
             <li><strong>Trusting stable answers as fresh.</strong>
             <code>cross_search</code> hits Reef, which can be stale.
             After edits, prefer <code>live_text_search</code> for exact
-            current text, or refresh with
+            current text; for indexed context, let the daemon catch up or refresh with
             <code>project_index_refresh &lcub; mode: "if_stale" &rcub;</code>.</li>
             <li><strong>Treating Reef as a TODO list.</strong> Findings
             describe what diagnostics observed, not work you've planned.

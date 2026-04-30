@@ -1,9 +1,10 @@
 ---
 import DocLayout from '../../../layouts/DocLayout.astro';
+import { agentmakoMeta } from '../../../lib/agentmakoMeta';
 ---
 <DocLayout
-  title="agentmako tool catalog — 80+ typed MCP tools by category · agentmako"
-  description="The full agentmako MCP tool catalog. 80+ typed tools across context, code intelligence, Reef Engine, database, trace and flow, and diagnostics. Read or mutation, with input shapes."
+  title={`agentmako tool catalog — ${agentmakoMeta.toolCountLabel} by category · agentmako`}
+  description={`The full agentmako MCP tool catalog. ${agentmakoMeta.toolCountSentence} across context, code intelligence, Reef Engine, database, trace and flow, diagnostics, workflow, artifacts, and telemetry. Read or mutation, with input shapes.`}
   canonicalPath="/docs/tools/"
   ogImage="/assets/og.png"
   ogType="website"
@@ -13,7 +14,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
   <span class="eyebrow">Reference &middot; Tools</span>
     <h1 style="margin-top:1rem;">The full <em>tool catalog</em>.</h1>
     <p class="doc-hero__sub">
-      <strong>agentmako</strong> ships 80+ typed MCP tools. Each tool is
+      <strong>agentmako</strong> ships {agentmakoMeta.toolCountSentence}. Each tool is
       either <em>read-only</em> (queries the index, store, or live
       filesystem/DB) or a <em>mutation</em> (writes Mako state — index
       refresh, diagnostic persistence, ack ledger). Authoritative
@@ -28,10 +29,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <h3 class="agent-card__name">Context</h3>
           <span class="agent-card__arrow">↗</span>
         </div>
-        <div class="agent-card__meta"><span>Read</span><span>5 tools</span></div>
+        <div class="agent-card__meta"><span>Read</span><span>11 tools</span></div>
         <p class="agent-card__desc">
-          context_packet, reef_scout, reef_inspect, evidence_confidence,
-          tool_batch — the first tools any agent should reach for.
+          mako_help, context_packet, tool_batch, reef_diff_impact,
+          reef_scout, reef_inspect, and evidence confidence tools.
         </p>
       </a>
       <a class="agent-card" href="./code-intel.html">
@@ -50,10 +51,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <h3 class="agent-card__name">Reef Engine</h3>
           <span class="agent-card__arrow">↗</span>
         </div>
-        <div class="agent-card__meta"><span>Read/Write</span><span>20+ tools</span></div>
+        <div class="agent-card__meta"><span>Read/Write</span><span>21 tools</span></div>
         <p class="agent-card__desc">
-          reef_agent_status, reef_inspect, project_open_loops,
-          verification_state, rule_memory, and ack tools.
+          file_preflight, project_findings, project_open_loops,
+          verification_state, rule packs, project conventions, and ack tools.
         </p>
       </a>
       <a class="agent-card" href="./database.html">
@@ -72,10 +73,11 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <h3 class="agent-card__name">Trace &amp; flow</h3>
           <span class="agent-card__arrow">↗</span>
         </div>
-        <div class="agent-card__meta"><span>Read</span><span>9 tools</span></div>
+        <div class="agent-card__meta"><span>Read</span><span>15+ tools</span></div>
         <p class="agent-card__desc">
           route_trace, trace_file, trace_table, trace_rpc, flow_map,
-          graph_path, change_plan, auth_path, route_context, trace_error.
+          graph_path, change_plan, auth_path, route_context, trace_error,
+          neighborhoods, and composer traces.
         </p>
       </a>
       <a class="agent-card" href="./diagnostics.html">
@@ -100,6 +102,14 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       also lives at
       <a href="https://github.com/drhalto/agentmako/blob/main/TOOLS.md" rel="noopener">TOOLS.md</a>
       in the public repo.
+    </div>
+
+    <div class="callout" style="margin-top:1rem;">
+      <strong>Tool result metadata</strong>
+      Mako tools now return contextual <code>_hints</code> and MCP
+      annotations such as read-only, idempotent, advisory, and
+      preview-first write behavior. Agents should read those hints before
+      choosing the next call.
     </div>
   </div>
 </section>

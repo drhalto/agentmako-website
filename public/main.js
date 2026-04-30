@@ -27,10 +27,11 @@
 
   /* ─── ticker (auto-scrolling tool names) ─── */
   const tickerItems = [
-    'context_packet', 'reef_scout', 'cross_search', 'ast_find_pattern', 'route_trace',
-    'imports_impact', 'db_table_schema', 'db_rls', 'tenant_leak_audit', 'flow_map',
+    'mako_help', 'context_packet', 'file_preflight', 'reef_diff_impact', 'reef_scout',
+    'cross_search', 'ast_find_pattern', 'route_trace', 'imports_impact',
+    'db_table_schema', 'db_rls', 'tenant_leak_audit', 'flow_map',
     'project_findings', 'verification_state', 'lint_files', 'git_precommit_check',
-    'reef_inspect', 'evidence_confidence', 'project_open_loops'
+    'extract_rule_template', 'reef_inspect', 'project_conventions'
   ];
   const tickerTrack = document.getElementById('ticker-track');
   if (tickerTrack) {
@@ -274,23 +275,22 @@
       { cls: 'cmt', text: '# attach Mako to the project' },
       { cls: 'cmd', text: '$ agentmako connect . --no-db' },
       { cls: 'out', text: '  ✓ indexed 482 files · 6,213 symbols · 38 routes' },
-      { cls: 'out', text: '  ✓ reef snapshot ready · 0 open loops' },
+      { cls: 'out', text: '  ✓ reef daemon ready · watcher active' },
       { cls: 'blank', text: '' },
-      { cls: 'cmt', text: '# agent asks Mako instead of grep-walking blind' },
-      { cls: 'cmd', text: '$ agentmako tool call . context_packet \\' },
-      { cls: 'cmd2', text: '    \'{"request":"fix broken auth callback route"}\'' },
+      { cls: 'cmt', text: '# agent asks for an edit workflow, not a grep dump' },
+      { cls: 'cmd', text: '$ agentmako tool call . mako_help \\' },
+      { cls: 'cmd2', text: '    \'{"task":"fix broken auth callback route"}\'' },
       { cls: 'blank', text: '' },
       { cls: 'json', text: '{' },
-      { cls: 'json', text: '  "primaryContext": [' },
-      { cls: 'json', text: '    { "path": "app/api/auth/callback/route.ts", "rank": 0.94 },' },
-      { cls: 'json', text: '    { "path": "lib/auth/dal.ts",                "rank": 0.91 }' },
+      { cls: 'json', text: '  "steps": [' },
+      { cls: 'json', text: '    "context_packet", "file_preflight",' },
+      { cls: 'json', text: '    "route_trace", "lint_files"' },
       { cls: 'json', text: '  ],' },
-      { cls: 'json', text: '  "activeFindings": 2,' },
-      { cls: 'json', text: '  "freshness":      "fresh_indexed",' },
-      { cls: 'json', text: '  "recommended":    "reef_inspect → lint_files"' },
+      { cls: 'json', text: '  "daemon":       "watcher active",' },
+      { cls: 'json', text: '  "_hints":       ["batch read-only follow-ups"]' },
       { cls: 'json', text: '}' },
       { cls: 'blank', text: '' },
-      { cls: 'cmt', text: '# agent now reads two files, not forty.' },
+      { cls: 'cmt', text: '# agent now has the next calls and freshness rules.' },
       { cls: 'caret', text: '' }
     ];
 

@@ -3,7 +3,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
   title="How agentmako tracks freshness · agentmako"
-  description="agentmako labels every piece of evidence — file facts, indexed symbols, schema rows, diagnostic findings — with a freshness state. Live, fresh_indexed, stale, contradicted, or unknown. Here's how the model works."
+  description="agentmako labels evidence with freshness state and keeps changed files moving toward fresh through the Reef daemon, watcher-backed indexing, and scoped diagnostics."
   canonicalPath="/docs/concepts/freshness.html"
   ogImage="/assets/og.png"
   ogImageAlt="agentmako — freshness model explainer."
@@ -17,8 +17,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       <strong>agentmako labels every piece of evidence with a freshness
       state</strong> — <code>live</code>, <code>fresh_indexed</code>,
       <code>stale</code>, <code>historical</code>, <code>contradicted</code>,
-      or <code>unknown</code>. The agent can choose to use stale data, but
-      it shouldn't be tricked into thinking stale data is current.
+      or <code>unknown</code>. In MCP sessions, the Reef daemon watches
+      edits and refreshes scoped facts/diagnostics in the background. The
+      agent can choose to use stale data, but it should not be tricked
+      into thinking stale data is current.
     </p>
 </header>
 <section class="section">
@@ -34,9 +36,11 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           and <code>verification_state</code> expose those labels.
           <code>context_packet</code> respects them. If you're returning
           line numbers after edits, prefer <code>live_text_search</code> to
-          <code>cross_search</code>. If you suspect the index is wrong,
+          <code>cross_search</code>. For normal MCP sessions, the daemon
+          should catch up changed files; if it does not, use
           <code>project_index_refresh</code> with <code>mode: "if_stale"</code>
-          is the cheap fix; <code>mode: "force"</code> is the expensive one.</p>
+          or <code>diagnostic_refresh</code> for the specific stale source.
+          <code>mode: "force"</code> is the expensive recovery path.</p>
         </section>
 
         <section id="states">
@@ -102,6 +106,29 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           batch of edits.</p>
         </section>
 
+        <section id="daemon">
+          <h2>The background daemon</h2>
+          <p>When <code>agentmako mcp</code> handles a Reef-backed request,
+          it lazy-starts the local Reef daemon if it is not already
+          running. The daemon watches file changes, batches them, and
+          refreshes the scoped project facts and diagnostics that changed.</p>
+
+          <p>The expected loop is:</p>
+          <ol>
+            <li>You edit a tracked file.</li>
+            <li>The watcher marks the file dirty and queues scoped refresh
+            work.</li>
+            <li><code>verification_state</code> and
+            <code>file_preflight</code> show whether a fresh per-file run
+            now covers that path.</li>
+          </ol>
+
+          <p>If those tools still report stale after the watcher should
+          have caught up, the output should include enough watcher and
+          recent-run state to distinguish "still refreshing" from "source
+          failed" or "not covered by this diagnostic run."</p>
+        </section>
+
         <section id="overlay">
           <h2>The working_tree_overlay shortcut</h2>
           <p>Sometimes you don't want a full reindex. You just want the
@@ -157,6 +184,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <ul>
             <li>Use <code>live_text_search</code> when you need exact
             current text.</li>
+            <li>Use <code>file_preflight</code> when a specific edited
+            file needs findings, diagnostic freshness, conventions, and
+            ack history in one response.</li>
             <li>Use <code>working_tree_overlay</code> when you've edited
             files but don't need a full re-index.</li>
             <li>Check <code>project_index_status</code> before trusting
@@ -265,7 +295,8 @@ import DocLayout from '../../../layouts/DocLayout.astro';
             lint and tsc run separately. A file with
             <code>freshness: fresh_indexed</code> may still have stale
             <em>diagnostic</em> rows. Use
-            <code>verification_state</code> for the diagnostic side.</li>
+            <code>verification_state</code> or <code>file_preflight</code>
+            for the diagnostic side.</li>
             <li><strong>Force-refreshing on every turn.</strong> Cost
             scales with repo size; "force" re-parses everything.
             Reach for <code>if_stale</code> first; only force when

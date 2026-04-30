@@ -1,9 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
+import { agentmakoMeta } from '../lib/agentmakoMeta';
 ---
 <Base
   title="agentmako — MCP server for Claude Code, Codex, Cursor & Cline"
-  description="Local-first MCP server that gives AI coding agents typed, deterministic context about your codebase. Replaces blind grep with ranked context packets. Works with Claude Code, Codex CLI, Cursor, and Cline. Apache-2.0, no telemetry, no hosted service."
+  description="Local-first MCP server that gives coding agents a live map of your repo: code, routes, schema, diagnostics, project rules, findings, and freshness state. Works with Claude Code, Codex CLI, Cursor, and Cline."
   ogImageAlt="agentmako logo and brand mark."
   keywords="MCP server, Model Context Protocol, Claude Code, Codex CLI, Cursor, Cline, AI coding agent, agent harness, codebase context, code intelligence, context packet, Reef Engine, AGENTS.md, CLAUDE.md, local-first, Apache-2.0, agentmako"
 >
@@ -40,10 +41,9 @@ import Base from '../layouts/Base.astro';
         "name": "agentmako",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Linux, Windows",
-        "softwareVersion": "0.2.0",
         "downloadUrl": "https://www.npmjs.com/package/agentmako",
         "url": "https://agentmako.drhalto.com/",
-        "description": "Local-first MCP server that gives AI coding agents typed, deterministic context about your codebase. Compatible with Claude Code, Codex CLI, Cursor, and Cline.",
+        "description": "Local-first MCP server that gives coding agents a live map of your repo: code, routes, schema, diagnostics, project rules, findings, and freshness state. Compatible with Claude Code, Codex CLI, Cursor, and Cline.",
         "license": "https://opensource.org/licenses/Apache-2.0",
         "offers": {
           "@type": "Offer",
@@ -61,7 +61,7 @@ import Base from '../layouts/Base.astro';
             "name": "What is agentmako?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "agentmako is a local-first MCP server (Apache-2.0) that gives AI coding agents typed, deterministic context about your codebase. It indexes your repo into local SQLite, tracks diagnostics, snapshots Postgres or Supabase schema when configured, and returns ranked context packets via the Model Context Protocol. Compatible with Claude Code, Codex CLI, Cursor, and Cline."
+              "text": "agentmako is a local-first MCP server that keeps code, routes, schema, diagnostics, project rules, findings, and freshness state queryable for Claude Code, Codex CLI, Cursor, Cline, and other MCP clients. It runs locally, stores project knowledge in local SQLite, and exposes that context through the Model Context Protocol."
             }
           },
           {
@@ -175,16 +175,14 @@ import Base from '../layouts/Base.astro';
       <div class="am-hero-grid">
         <div class="am-reveal">
           <h1 class="am-h1">
-            Stop letting agents <span class="accent">grep your repo blind.</span>
+            Give coding agents a <span class="accent">live map of your repo.</span>
           </h1>
           <h2 class="am-visually-hidden">agentmako — local-first MCP server for Claude Code, Codex CLI, Cursor, and Cline</h2>
           <p class="am-lede">
-            <strong>agentmako</strong> is a local-first MCP server for AI coding
-            agents — Claude Code, Codex CLI, Cursor, Cline, and any other MCP
-            client. It indexes the repo, tracks diagnostics, snapshots your
-            Postgres or Supabase schema, and keeps Reef's persistent project
-            knowledge fresh enough to query — so
-            your agent stops rediscovering everything from scratch on every turn.
+            <strong>agentmako</strong> is a local-first MCP server that keeps code,
+            routes, schema, diagnostics, project rules, findings, and freshness
+            state queryable for Claude Code, Codex CLI, Cursor, Cline, and other
+            MCP clients.
           </p>
           <div class="am-hero-cta">
             <button class="am-cmd" type="button" data-copy="npm install -g agentmako" aria-label="Copy install command">
@@ -206,7 +204,7 @@ import Base from '../layouts/Base.astro';
           <div class="am-hero-meta">
             <span>local-first · no hosted service</span>
             <span>node &ge; 20</span>
-            <span>80+ typed tools</span>
+            <span>{agentmakoMeta.toolCountLabel}</span>
             <span>apache-2.0</span>
           </div>
         </div>
@@ -229,38 +227,38 @@ import Base from '../layouts/Base.astro';
     <div class="am-ticker-track" id="ticker-track"></div>
   </div>
 
-  <!-- ===== LOOP ===== -->
-  <section class="am-sect" id="loop">
+  <!-- ===== REEF ===== -->
+  <section class="am-sect" id="reef">
     <div class="am-shell">
       <div class="am-sect-head am-reveal">
-        <span class="am-sect-eyebrow" data-glyph="↻">how it works</span>
-        <h2 class="am-h2">Index. Ask. Verify. Edit.</h2>
+        <span class="am-sect-eyebrow" data-glyph="◆">reef engine</span>
+        <h2 class="am-h2">Reef keeps the map alive.</h2>
         <p class="am-lede">
-          Mako sits between your coding agent and your repo as an MCP server. It
-          doesn't write code — it returns the context the model would otherwise
-          invent.
+          The index is only the start. Reef is Mako's durable fact and finding
+          layer: it remembers what changed, what failed, what was reviewed, and
+          which evidence is fresh enough for an agent to trust.
         </p>
       </div>
       <div class="am-loop">
         <div class="am-loop-step am-reveal">
           <span class="am-loop-step__n">01</span>
-          <h4>Index</h4>
-          <p>Reads the repo. Writes a typed local snapshot.</p>
+          <h4>Durable facts</h4>
+          <p>Routes, imports, symbols, schema, instructions, and rule-pack hits become typed local evidence.</p>
         </div>
         <div class="am-loop-step am-reveal" style="transition-delay:70ms;">
           <span class="am-loop-step__n">02</span>
-          <h4>Ask</h4>
-          <p>Your agent calls one tool. Mako returns ranked context.</p>
+          <h4>Findings and acks</h4>
+          <p>Known issues, cross-file risks, open loops, and reviewed decisions survive across sessions.</p>
         </div>
         <div class="am-loop-step am-reveal" style="transition-delay:140ms;">
           <span class="am-loop-step__n">03</span>
-          <h4>Verify</h4>
-          <p>Stale or contradicted evidence is labeled, not silently served.</p>
+          <h4>Background freshness</h4>
+          <p>The daemon watches edits, refreshes scoped diagnostics, and labels stale or contradicted evidence.</p>
         </div>
         <div class="am-loop-step am-reveal" style="transition-delay:210ms;">
           <span class="am-loop-step__n">04</span>
-          <h4>Edit</h4>
-          <p>The agent edits with cited context. Diagnostics gate the commit.</p>
+          <h4>Agent workflows</h4>
+          <p><code>context_packet</code>, <code>file_preflight</code>, and <code>reef_diff_impact</code> turn Reef into one-call guidance.</p>
         </div>
       </div>
     </div>
@@ -296,14 +294,14 @@ import Base from '../layouts/Base.astro';
             <div class="am-diff__label">freshness</div>
             <div class="am-diff__lines">
               <div class="am-diff__line bad"><span>−</span>assumes the first read is still true</div>
-              <div class="am-diff__line good"><span>+</span>labels every fact live, stale, or contradicted</div>
+              <div class="am-diff__line good"><span>+</span>labels freshness and refreshes changed files in the background</div>
             </div>
           </div>
           <div class="am-diff__row">
             <div class="am-diff__label">memory</div>
             <div class="am-diff__lines">
               <div class="am-diff__line bad"><span>−</span>findings die with the chat</div>
-              <div class="am-diff__line good"><span>+</span>reef remembers across runs</div>
+              <div class="am-diff__line good"><span>+</span>reef remembers findings, acks, runs, and conventions</div>
             </div>
           </div>
           <div class="am-diff__row">
@@ -340,7 +338,7 @@ import Base from '../layouts/Base.astro';
             <span class="num">01</span>
             <div>
               <span class="cmd"><span class="prompt">$</span>npm install -g agentmako</span>
-              <span class="out ok">added agentmako@0.2.0 · 1 binary in $PATH</span>
+              <span class="out ok">added {agentmakoMeta.installPackageLabel} · 1 binary in $PATH</span>
             </div>
             <button class="am-copy" data-copy="npm install -g agentmako">copy</button>
           </div>
@@ -487,12 +485,13 @@ args    = [<span class="s">"mcp"</span>]</code></pre>
         <div class="am-playbook__bar">
           <div class="dots"><span></span><span></span><span></span></div>
           <span class="title">CLAUDE.md · AGENTS.md — preview</span>
-          <span class="badge">311 lines</span>
+          <span class="badge">current template</span>
         </div>
         <div class="am-playbook__body">
-<pre id="playbook-text"><span class="h2">## Mako MCP Usage</span>
+<pre id="playbook-text"><span class="h2"># Mako MCP Usage</span>
 
-This repo has <span class="code">`mako-ai`</span> registered in <span class="code">`.mcp.json`</span> as:
+This file is the short agent-facing guide for projects that have Mako
+registered as <span class="code">`mako-ai`</span>:
 
 <span class="comment">```json</span>
 &lcub;
@@ -503,20 +502,19 @@ This repo has <span class="code">`mako-ai`</span> registered in <span class="cod
 &rcub;
 <span class="comment">```</span>
 
-In Claude Code, Mako tools usually appear as <span class="code">`mcp__mako-ai__&lt;toolName&gt;`</span>. The examples below use the bare tool name for readability.
+In Claude Code, tools usually appear as <span class="code">`mcp__mako-ai__&lt;toolName&gt;`</span>. Examples below use bare names. For complete CLI/tool details, use <span class="code">`agentmako --help`</span>, <span class="code">`agentmako tool --help`</span>, MCP <span class="code">`tools/list`</span>, or <span class="code">`mako_help`</span>.
 
-<span class="h3">### Operating Model</span>
+<span class="h3">## Default Workflow</span>
 
-Mako is a deterministic project context engine, not a replacement for normal coding discipline. Use it to narrow the work: relevant files, symbols, routes, schema objects, findings, freshness, and risks. Then use normal reads, edits, tests, and shell commands to implement and verify.
+When unsure, call <span class="code">`mako_help`</span> first. It returns an ordered recipe with suggested args and verification steps.
 
-Prefer Mako before broad grep/file walking when the question is about project structure, cross-file impact, database usage, routing, auth, or known findings. Prefer <span class="code">`live_text_search`</span> or shell <span class="code">`rg`</span> when you need exact current disk text after edits.
+For broad or vague work, start with <span class="code">`context_packet`</span> using <span class="code">`mode: "explore" | "plan" | "implement" | "review"`</span>. Before editing a risky file, call <span class="code">`file_preflight`</span>. Mid-edit or before review, call <span class="code">`reef_diff_impact`</span> on changed files.
 
-Mako has two evidence modes:
+<span class="h3">## Freshness</span>
 
-<span class="bullet">-</span> Indexed/Reef evidence: fast and structured, but tied to the last index or persisted fact snapshot.
-<span class="bullet">-</span> Live evidence: current filesystem or live database. Use this when line numbers, edited files, or recently created files matter.
+In long-running MCP sessions, Mako's watcher refreshes changed files and runs scoped diagnostics in the background. Normal edits should not require manual <span class="code">`project_index_refresh`</span> or <span class="code">`diagnostic_refresh`</span>.
 
-Do not treat answer stability as freshness. A stable indexed answer can still be stale relative to disk. Check <span class="code">`project_index_status`</span>, per-evidence freshness fields, or <span class="code">`live_text_search`</span> before relying on exact lines after edits.
+If Mako and live files/tests disagree, trust live reads and test output, then refresh Mako if indexed context should catch up.
 
 </pre>
         </div>
@@ -559,7 +557,7 @@ Do not treat answer stability as freshness. A stable indexed answer can still be
     <div class="am-shell">
       <div class="am-sect-head am-reveal">
         <span class="am-sect-eyebrow" data-glyph="⌬">tool catalog</span>
-        <h2 class="am-h2">80+ typed tools. One MCP server.</h2>
+        <h2 class="am-h2">{agentmakoMeta.toolCountHeadline}. One MCP server.</h2>
         <p class="am-lede">
           Six clusters cover the whole agent loop — from "what's relevant?" to
           "did it ship?".
@@ -570,7 +568,7 @@ Do not treat answer stability as freshness. A stable indexed answer can still be
         <a class="am-cat" href="/docs/tools/context.html">
           <div class="am-cat__head">Context</div>
           <div class="am-cat__desc">Ranked context for vague tasks.</div>
-          <div class="am-cat__sample"><code>context_packet</code> <code>reef_scout</code></div>
+          <div class="am-cat__sample"><code>mako_help</code> <code>context_packet</code></div>
         </a>
         <a class="am-cat" href="/docs/tools/code-intel.html">
           <div class="am-cat__head">Code intel</div>
@@ -580,7 +578,7 @@ Do not treat answer stability as freshness. A stable indexed answer can still be
         <a class="am-cat" href="/docs/tools/reef.html">
           <div class="am-cat__head">Reef Engine</div>
           <div class="am-cat__desc">Durable facts, findings, freshness.</div>
-          <div class="am-cat__sample"><code>file_findings</code> <code>verification_state</code></div>
+          <div class="am-cat__sample"><code>file_preflight</code> <code>reef_diff_impact</code></div>
         </a>
         <a class="am-cat" href="/docs/tools/database.html">
           <div class="am-cat__head">Database</div>

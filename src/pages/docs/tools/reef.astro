@@ -2,8 +2,8 @@
 import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
-  title="Reef Engine tools - agent status, durable findings, freshness · agentmako"
-  description="The Reef Engine cluster — reef_agent_status, reef_scout, reef_inspect, project_open_loops, verification_state, known issues, acks, and durable project memory."
+  title="Reef Engine tools - file preflight, diff impact, durable findings · agentmako"
+  description="The Reef Engine cluster — file_preflight, reef_diff_impact, reef_agent_status, reef_scout, project_open_loops, verification_state, rule packs, acks, and durable project memory."
   canonicalPath="/docs/tools/reef.html"
   ogImage="/assets/og.png"
   ogType="article"
@@ -15,8 +15,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
     <p class="doc-hero__sub">
       Reef is Mako's durable project knowledge layer. It keeps facts,
       findings, diagnostic runs, freshness labels, operation history, and
-      review acknowledgements in local SQLite so the agent can ask what
-      Mako already knows before it starts grepping.
+      review acknowledgements in local SQLite. In MCP sessions the local
+      daemon watches edits and runs scoped refresh work so agents can ask
+      what Mako already knows before they start grepping.
     </p>
 </header>
 <section class="section">
@@ -26,10 +27,11 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       <section id="workflow">
         <h2>Common Reef workflow</h2>
         <ol>
-          <li>Start with <code>reef_agent_status</code> to see whether the index, diagnostics, and schema evidence are fresh enough for the task.</li>
-          <li>Use <code>reef_scout</code>, <code>context_packet</code>, or <code>reef_inspect</code> to pull focused evidence before editing.</li>
+          <li>Start with <code>mako_help</code> or <code>reef_agent_status</code> to see the right workflow and whether index, diagnostics, and schema evidence are fresh enough.</li>
+          <li>Use <code>context_packet</code>, <code>reef_scout</code>, or <code>reef_inspect</code> to pull focused evidence before editing.</li>
+          <li>Before touching one risky file, call <code>file_preflight</code>. Before review, call <code>reef_diff_impact</code> for changed files.</li>
           <li>Check <code>project_open_loops</code> and <code>reef_known_issues</code> for unresolved findings that may already cover the problem.</li>
-          <li>If diagnostics are stale, run <code>diagnostic_refresh</code>; if the index is stale, use <code>project_index_refresh</code> with <code>mode: "if_stale"</code>.</li>
+          <li>If watcher-backed freshness still reports stale or failed diagnostics, run <code>diagnostic_refresh</code>; if the index is stale, use <code>project_index_refresh</code> with <code>mode: "if_stale"</code>.</li>
         </ol>
       </section>
 
@@ -50,9 +52,29 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <pre><code>&lcub; "filePath": "lib/auth/dal.ts", "limit": 50 &rcub;</code></pre>
       </article>
 
+      <article id="file_preflight">
+        <h2><code>file_preflight</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>One-call pre-edit packet for a file: durable findings,
+        file-scoped diagnostic freshness, recent diagnostic runs,
+        applicable conventions, changed-file state, and acknowledgement
+        history.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "filePath": "lib/auth/dal.ts", "limit": 50 &rcub;</code></pre>
+      </article>
+
+      <article id="reef_diff_impact">
+        <h2><code>reef_diff_impact</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Diff-aware impact query for changed files. It combines working
+        tree overlay facts, import impact, active findings on downstream
+        callers, and conventions the diff may violate.</p>
+      </article>
+
       <article id="reef_where_used">
         <h2><code>reef_where_used</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Where-used lookup backed by maintained import and dependency edges. It is fast and structured; use <code>ast_find_pattern</code> or <code>live_text_search</code> when you need exact local text references.</p>
+        <p>Where-used lookup backed by maintained import and dependency
+        edges, indexed identifier-text references, and related durable
+        findings. The <code>coverage</code> field explains what is direct
+        usage versus related diagnostic signal.</p>
       </article>
 
       <article id="reef_known_issues">
@@ -67,7 +89,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 
       <article id="verification_state">
         <h2><code>verification_state</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
-        <p>Whether cached diagnostics still cover the current working tree. This prevents an agent from treating an old green result as current proof.</p>
+        <p>Whether cached diagnostics still cover the current working
+        tree. File-scoped runs count when they cover the requested file,
+        so agents can tell whether the daemon has caught up.</p>
       </article>
 
       <article id="project_findings">
@@ -117,6 +141,18 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <p>Discovered auth guards, runtime boundaries, generated paths, route patterns, and schema usage conventions without re-reading the whole codebase.</p>
       </article>
 
+      <article id="rule_pack_validate">
+        <h2><code>rule_pack_validate</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Validate local YAML rule packs before relying on them.
+        Rule packs are hot-reloaded from <code>.mako/rules/*.yaml</code>.</p>
+      </article>
+
+      <article id="extract_rule_template">
+        <h2><code>extract_rule_template</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Mine a fix diff into a draft YAML rule template so a bug shape
+        can become reusable project knowledge.</p>
+      </article>
+
       <article id="reef_instructions">
         <h2><code>reef_instructions</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
         <p>Scoped <code>.mako/instructions.md</code>, <code>AGENTS.md</code>, and related project instructions for requested files.</p>
@@ -129,7 +165,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 
       <article id="project_index_refresh">
         <h2><code>project_index_refresh</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
-        <p>Run the project indexer and materialize a new Reef revision. Use <code>mode: "if_stale"</code> for normal work; use <code>force</code> only when indexed answers look wrong.</p>
+        <p>Run the project indexer and materialize a new Reef revision.
+        In normal MCP sessions the daemon handles changed files in the
+        background; use <code>mode: "if_stale"</code> for recovery and
+        <code>force</code> only when indexed answers look wrong.</p>
         <h3>Input</h3>
         <pre><code>&lcub; "mode": "if_stale", "reason": "after batch of edits" &rcub;</code></pre>
       </article>

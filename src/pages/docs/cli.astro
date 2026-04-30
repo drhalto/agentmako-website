@@ -27,8 +27,9 @@ import DocLayout from '../../layouts/DocLayout.astro';
 
         <section id="quick">
           <h2 data-step="01">Quick reference</h2>
-          <p>The five commands you'll use 95% of the time:</p>
-          <pre><code>agentmako connect .              # attach the current project
+          <p>The commands you'll use most often:</p>
+          <pre><code>agentmako --version              # print the installed version
+agentmako connect .              # attach the current project
 agentmako doctor                 # green checks for config + service + index
 agentmako mcp                    # start the stdio MCP server
 agentmako tool list              # list registered tools
@@ -128,7 +129,9 @@ agentmako project db bind --supabase-project xxxxxxxx</code></pre>
           <p>Start the stdio MCP server. The agent harness (Claude
           Code, Codex, Cursor, Cline) spawns this process via your MCP
           config and talks to it on stdin/stdout. You don't usually run
-          this manually — but you can, to debug.</p>
+          this manually — but you can, to debug. Reef-backed calls
+          lazy-start the local daemon so changed files can be watched and
+          scoped diagnostics can refresh in the background.</p>
 
           <pre><code># run standalone to see the JSON-RPC handshake
 agentmako mcp</code></pre>
@@ -146,7 +149,8 @@ agentmako mcp</code></pre>
           <h3><code>agentmako tool list</code></h3>
           <p>Prints every tool currently exposed by the MCP server,
           grouped by category. Includes mode (read/mutation),
-          description, and input schema. Authoritative runtime catalog.</p>
+          description, and input schema. Authoritative runtime catalog
+          for the installed version.</p>
 
           <h3><code>agentmako tool call NAME ARGS</code></h3>
           <p>Invoke an MCP tool from the shell — the same call the
@@ -167,6 +171,10 @@ agentmako mcp</code></pre>
           <h3><code>agentmako status</code></h3>
           <p>Compact dashboard: current project, freshness counts,
           provider, recent activity. Run between sessions.</p>
+
+          <h3><code>agentmako --version</code> / <code>agentmako version</code></h3>
+          <p>Prints the installed CLI version. Useful when confirming
+          that a running MCP session is using the expected release.</p>
 
           <h3><code>agentmako verify [path]</code></h3>
           <p>Runs the verification suite — checks evidence freshness

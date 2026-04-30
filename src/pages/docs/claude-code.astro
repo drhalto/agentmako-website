@@ -3,7 +3,7 @@ import DocLayout from '../../layouts/DocLayout.astro';
 ---
 <DocLayout
   title="How to add an MCP server to Claude Code · agentmako"
-  description="Wire agentmako into Claude Code in five minutes. claude mcp add, plain MCP wiring, or the bundled mako-ai plugin with discovery, trace, graph, and database skills."
+  description="Wire agentmako into Claude Code in five minutes. claude mcp add, plain MCP wiring, or the bundled mako-ai plugin with discovery, trace, graph, database, and workflow skills."
   canonicalPath="/docs/claude-code.html"
   ogImage="/assets/og.png"
   ogImageAlt="agentmako — MCP setup for Claude Code."
@@ -19,7 +19,8 @@ import DocLayout from '../../layouts/DocLayout.astro';
       into Claude Code in one command. Two paths. <strong>Plain MCP</strong>
       if you just want the tools. <strong>Plugin</strong> if you want
       Claude Code to load Mako-specific skills that tell it <em>when</em>
-      to call which tool.
+      to call which tool. Either path lazy-starts the Reef daemon on
+      first Reef-backed MCP request.
     </p>
 </header>
 <section class="section">
@@ -100,8 +101,9 @@ import DocLayout from '../../layouts/DocLayout.astro';
           </div>
 
           <p>You should see <code>mako-ai</code> listed as <strong>connected</strong>.
-          You can also expand it to see registered tools — <code>context_packet</code>,
-          <code>reef_scout</code>, <code>repo_map</code>, <code>cross_search</code>, and friends.</p>
+          You can also expand it to see registered tools — <code>mako_help</code>,
+          <code>context_packet</code>, <code>file_preflight</code>,
+          <code>reef_diff_impact</code>, <code>cross_search</code>, and friends.</p>
         </section>
 
         <section id="plugin">
@@ -115,8 +117,8 @@ import DocLayout from '../../layouts/DocLayout.astro';
               <span class="code-block__lang">// from the agentmako repo root</span>
               <button class="copy-inline" data-copy-target="cc-plugin">Copy</button>
             </div>
-<pre id="cc-plugin"><span class="c-prompt">$</span> claude plugin validate ./mako-ai-claude-plugin
-<span class="c-prompt">$</span> claude --plugin-dir ./mako-ai-claude-plugin</pre>
+<pre id="cc-plugin"><span class="c-prompt">$</span> claude plugin validate ./plugins/claude-code
+<span class="c-prompt">$</span> claude --plugin-dir ./plugins/claude-code</pre>
           </div>
 
           <p>Inside Claude Code these skills become available:</p>
@@ -128,7 +130,7 @@ import DocLayout from '../../layouts/DocLayout.astro';
             <li><code>/mako-ai:mako-graph</code> — dependencies and imports</li>
             <li><code>/mako-ai:mako-database</code> — Postgres / Supabase schema</li>
             <li><code>/mako-ai:mako-code-intel</code> — diagnostics &amp; ESLint/Biome state</li>
-            <li><code>/mako-ai:mako-workflow</code> — multi-step playbooks</li>
+            <li><code>/mako-ai:mako-workflow</code> — file preflight, diff impact, verification, acks</li>
           </ul>
         </section>
 
@@ -146,8 +148,9 @@ Task: <span class="c-str">"figure out how the auth callback works in this repo"<
 Show me what context_packet returned before reading any files.</pre>
           </div>
 
-          <p>You should see Claude call <code>context_packet</code>, get back
-          a typed packet (target file, routes, touched symbols, findings, "read next"),
+          <p>You should see Claude call <code>context_packet</code> or
+          <code>mako_help</code>, get back a typed packet (target files,
+          routes, touched symbols, findings, risks, "read next", and hints),
           and then proceed with that as a starting point instead of grep.</p>
         </section>
 
@@ -159,9 +162,10 @@ Show me what context_packet returned before reading any files.</pre>
 
           <div class="callout">
             <strong>Why this matters</strong>
-            The MCP tools are only as useful as the agent's choice to call them. Telling
-            Claude in <code>CLAUDE.md</code> "before grepping, call <code>context_packet</code>"
-            is the difference between a helpful tool and an ignored one.
+            The MCP tools are only as useful as the agent's choice to call them. The
+            current template tells Claude when to start with <code>mako_help</code>,
+            when to call <code>context_packet</code>, and when to use
+            <code>file_preflight</code> before an edit.
           </div>
         </section>
 

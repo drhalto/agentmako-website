@@ -15,7 +15,8 @@ import DocLayout from '../../../layouts/DocLayout.astro';
     <p class="doc-hero__sub">
       The toolkit for asking concrete code questions — what's the
       shape of this repo, where is symbol X, who imports file Y, what
-      AST patterns match, what's actually on disk right now.
+      AST patterns match, what's actually on disk right now, and what
+      changed-file impact the agent should verify next.
     </p>
 </header>
 <section class="section">
@@ -44,7 +45,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <h2><code>ast_find_pattern</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
         <p>Run ast-grep structural search over fresh indexed JS/TS/JSX/TSX files.</p>
         <h3>When to use it</h3>
-        <p>When you need real call sites, not text matches. Catches defaulted exports, dynamic imports, and patterns grep can't see.</p>
+        <p>When you need real call sites, not text matches. Catches defaulted exports, dynamic imports, and patterns grep can't see. In TSX, object-literal or JSX-ambiguous patterns are auto-anchored when needed, so <code>&lcub; ssr: false &rcub;</code> can still match as an expression-shaped pattern.</p>
         <h3>Input</h3>
         <pre><code>&lcub;
   "pattern":   "supabase.from($TABLE)",
@@ -58,7 +59,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <h2><code>live_text_search</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
         <p>Live ripgrep over the working tree for exact disk text. Defaults to fixed-string search.</p>
         <h3>When to use it</h3>
-        <p>After edits. The index may be stale; <code>live_text_search</code> reads from the current filesystem.</p>
+        <p>After edits. The daemon usually catches up indexed facts in the background, but <code>live_text_search</code> reads from the current filesystem immediately.</p>
         <h3>Input</h3>
         <pre><code>&lcub;
   "query":      "verifySession(",
@@ -83,6 +84,15 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <h3>Input</h3>
         <pre><code>&lcub; "filePath": "lib/users/queries.ts", "limit": 200 &rcub;</code></pre>
         <p>See <a href="../recipes/safe-refactoring.html">How to refactor safely</a> for the full workflow.</p>
+      </article>
+
+      <article id="reef_diff_impact">
+        <h2><code>reef_diff_impact</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Changed-file impact composer for the current working tree.</p>
+        <h3>When to use it</h3>
+        <p>After edits and before final diagnostics. It combines changed files, indexed import edges, related findings, and conventions so the agent can see which callers or rules may need another look.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub; "filePaths": ["lib/users/queries.ts", "lib/users/index.ts"] &rcub;</code></pre>
       </article>
 
       <article id="imports_hotspots">

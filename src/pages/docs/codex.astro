@@ -18,7 +18,8 @@ import DocLayout from '../../layouts/DocLayout.astro';
       <strong>agentmako</strong> is a local-first MCP server that wires
       into Codex CLI through a single TOML block in
       <code>~/.codex/config.toml</code>. One block, one restart, and Mako
-      tools are in <code>codex</code> and <code>codex exec</code>.
+      tools are in <code>codex</code> and <code>codex exec</code>. The first
+      Reef-backed MCP request lazy-starts the local watcher/daemon.
     </p>
 </header>
 <section class="section">
@@ -86,8 +87,9 @@ import DocLayout from '../../layouts/DocLayout.astro';
           </div>
 
           <p>Once the session is up, ask Codex to list available tools.
-          You should see Mako tools (<code>context_packet</code>,
-          <code>reef_scout</code>, <code>repo_map</code>, <code>cross_search</code>,
+          You should see Mako tools (<code>mako_help</code>,
+          <code>context_packet</code>, <code>file_preflight</code>,
+          <code>reef_diff_impact</code>, <code>cross_search</code>,
           <code>ast_find_pattern</code>, etc.) under the <code>mako-ai</code> server.</p>
         </section>
 
@@ -121,14 +123,15 @@ Show me the packet, then proceed with the task.</pre>
           <p>Codex respects <code>AGENTS.md</code> at the project root. Drop
           the contents of <a href="https://github.com/drhalto/agentmako/blob/main/AGENTS.md">agentmako's AGENTS.md</a>
           into your project's <code>AGENTS.md</code> so the agent learns to
-          reach for <code>context_packet</code> before grep.</p>
+          reach for <code>mako_help</code>, <code>context_packet</code>,
+          and <code>file_preflight</code> before grep.</p>
 
           <div class="callout">
             <strong>Result</strong>
-            On the same task, Codex with Mako guidance issues 1–2 tool
-            calls; without it, expect 5+ file reads searching for the
-            target. The <code>AGENTS.md</code> entry is the cheapest token win
-            in this whole setup.
+            On the same task, Codex with Mako guidance asks for a workflow
+            or context packet first; without it, expect broad file reads
+            searching for the target. The <code>AGENTS.md</code> entry is the
+            cheapest token win in this whole setup.
           </div>
         </section>
 

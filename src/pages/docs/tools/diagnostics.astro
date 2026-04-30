@@ -15,8 +15,11 @@ import DocLayout from '../../../layouts/DocLayout.astro';
     <p class="doc-hero__sub">
       Run linters, the TypeScript compiler, and Mako's own rule pack on
       a bounded set of files. Results persist into Reef so the agent can
-      query them later via <code>file_findings</code> and
-      <code>project_open_loops</code>.
+      query them later via <code>file_preflight</code>,
+      <code>file_findings</code>, and <code>project_open_loops</code>.
+      In MCP sessions the Reef daemon can run scoped diagnostics after
+      file changes; use manual refresh when the watcher has not caught up
+      or a source failed.
     </p>
 </header>
 <section class="section">
@@ -25,7 +28,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 
       <article id="lint_files">
         <h2><code>lint_files</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
-        <p>Mako's internal diagnostics for a bounded file set. TS-aware, structural, plus Mako's own rule pack.</p>
+        <p>Mako's internal diagnostics for a bounded file set. TS-aware,
+        structural, plus hot-reloaded YAML rule packs from
+        <code>.mako/rules/*.yaml</code>.</p>
         <h3>Input</h3>
         <pre><code>&lcub;
   "files": ["app/dashboard/manager/layout.tsx", "lib/auth/dal.ts"],
@@ -60,7 +65,22 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <h2><code>diagnostic_refresh</code> <span style="color:#FFC15C; font-size:0.7em;">write</span></h2>
         <p>Invoke selected diagnostic sources and record compact per-source Reef results.</p>
         <h3>When to use it</h3>
-        <p>Routine "rebuild the diagnostic snapshot" after big edits.</p>
+        <p>Manual recovery or explicit verification after big edits.
+        Normal MCP sessions rely on the daemon first, then call this if
+        <code>verification_state</code> or <code>file_preflight</code>
+        still reports stale, failed, unavailable, or unknown coverage.</p>
+      </article>
+
+      <article id="rule_pack_validate">
+        <h2><code>rule_pack_validate</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Validate YAML rule packs before relying on them. Useful while
+        authoring project-specific rules.</p>
+      </article>
+
+      <article id="extract_rule_template">
+        <h2><code>extract_rule_template</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Inspect a fix diff and propose a draft YAML rule template to
+        catch the same bug shape later.</p>
       </article>
 
       <article id="git_precommit_check">
@@ -78,7 +98,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       <section id="related">
         <h2>Related</h2>
         <ul>
-          <li><a href="./reef.html">Reef tools</a> — query persisted findings via <code>file_findings</code> and <code>project_findings</code>.</li>
+          <li><a href="./reef.html">Reef tools</a> — query persisted findings via <code>file_preflight</code>, <code>file_findings</code>, and <code>project_findings</code>.</li>
           <li><a href="../recipes/safe-refactoring.html">Refactor safely with AI agents</a> — uses diagnostics to gate edits.</li>
           <li><a href="../faq.html#stale">FAQ: why is agentmako returning stale results?</a></li>
         </ul>

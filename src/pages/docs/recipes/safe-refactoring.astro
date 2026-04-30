@@ -3,7 +3,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
   title="How to refactor safely with AI agents · agentmako"
-  description="A walkthrough recipe — rename an exported function across a real codebase without shipping broken callers. Use imports_impact, file_findings, lint_files, git_precommit_check."
+  description="A walkthrough recipe — rename an exported function across a real codebase without shipping broken callers. Use file_preflight, reef_diff_impact, imports_impact, lint_files, and git_precommit_check."
   canonicalPath="/docs/recipes/safe-refactoring.html"
   ogImage="/assets/og.png"
   ogImageAlt="agentmako — safe refactoring recipe."
@@ -17,11 +17,12 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       <strong>TL;DR:</strong> An AI agent renaming an exported function
       will, by default, miss the dynamic callers, ESM-only re-exports, and
       barrel files that grep doesn't find. Use
-      <code>imports_impact</code> + <code>imports_hotspots</code> +
-      <code>ast_find_pattern</code> + diagnostics to see the full blast
-      radius before you start. Tools used: <code>imports_impact</code>,
+      <code>file_preflight</code> + <code>imports_impact</code> +
+      <code>reef_diff_impact</code> + diagnostics to see the full blast
+      radius before and after the edit. Tools used: <code>file_preflight</code>,
+      <code>imports_impact</code>,
       <code>imports_hotspots</code>, <code>ast_find_pattern</code>,
-      <code>file_findings</code>, <code>lint_files</code>,
+      <code>reef_diff_impact</code>, <code>lint_files</code>,
       <code>typescript_diagnostics</code>, <code>git_precommit_check</code>.
     </p>
 </header>
@@ -58,7 +59,19 @@ import DocLayout from '../../../layouts/DocLayout.astro';
       <section>
         <h2>The agentmako approach</h2>
 
-        <h3>Step 1 — <code>imports_impact</code></h3>
+        <h3>Step 1 — <code>file_preflight</code></h3>
+        <p>Before editing the file, ask Reef what is already known about
+        it:</p>
+        <pre><code>&lcub;
+  "tool": "file_preflight",
+  "args": &lcub; "filePath": "lib/users/queries.ts", "limit": 50 &rcub;
+&rcub;</code></pre>
+        <p>This returns active findings, diagnostic stale flags, recent
+        runs that covered the file, applicable conventions, and any ack
+        history. You learn whether a warning is new or already reviewed
+        before the agent rewrites the code.</p>
+
+        <h3>Step 2 — <code>imports_impact</code></h3>
         <p>Ask the index "what depends on this file?"</p>
         <pre><code>&lcub;
   "tool": "imports_impact",
@@ -70,7 +83,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <code>lib/users/index.ts</code>, and 3 generated SDK files under
         <code>packages/sdk/</code> that you would have missed entirely.</p>
 
-        <h3>Step 2 — <code>imports_hotspots</code></h3>
+        <h3>Step 3 — <code>imports_hotspots</code></h3>
         <pre><code>&lcub;
   "tool": "imports_hotspots",
   "args": &lcub; "limit": 30 &rcub;
@@ -80,7 +93,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         that's the file you want to update first to keep the
         re-export name surface stable.</p>
 
-        <h3>Step 3 — <code>ast_find_pattern</code></h3>
+        <h3>Step 4 — <code>ast_find_pattern</code></h3>
         <p>Catch the patterns grep can't:</p>
         <pre><code>&lcub;
   "tool": "ast_find_pattern",
@@ -95,7 +108,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <code>ackableFingerprint</code> if you want to mark intentional
         legacy uses.</p>
 
-        <h3>Step 4 — diagnostics before edits</h3>
+        <h3>Step 5 — diagnostics before edits</h3>
         <pre><code>&lcub;
   "tool": "typescript_diagnostics",
   "args": &lcub; "files": ["lib/users/queries.ts", "lib/users/index.ts"] &rcub;
@@ -104,13 +117,18 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         rename, you'll know they were pre-existing — not caused by the
         refactor.</p>
 
-        <h3>Step 5 — make the edits, then re-run diagnostics</h3>
+        <h3>Step 6 — make the edits, then check diff impact</h3>
         <p>Rename in source, update the barrel re-exports, update the
-        SDK files. Re-run <code>typescript_diagnostics</code> on the
+        SDK files. Then ask what your working-tree diff may have affected:</p>
+        <pre><code>&lcub;
+  "tool": "reef_diff_impact",
+  "args": &lcub; "filePaths": ["lib/users/queries.ts", "lib/users/index.ts"] &rcub;
+&rcub;</code></pre>
+        <p>Re-run <code>typescript_diagnostics</code> on the
         same files. Compare findings: any new ones are caused by the
         refactor.</p>
 
-        <h3>Step 6 — pre-commit gate</h3>
+        <h3>Step 7 — pre-commit gate</h3>
         <pre><code>&lcub;
   "tool": "git_precommit_check",
   "args": &lcub;&rcub;
@@ -132,19 +150,20 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           giant one.</li>
           <li><strong>Public package:</strong> after the in-repo edits,
           add a deprecation shim that re-exports the old name with
-          <code>@deprecated</code>. Use <code>file_findings</code> on the
-          shim to catch acks/diagnostics that flag it for removal in a
-          later release.</li>
+          <code>@deprecated</code>. Use <code>file_preflight</code> on the
+          shim to catch acks, conventions, and diagnostics that flag it
+          for removal in a later release.</li>
         </ul>
       </section>
 
       <section>
         <h2>Tools used in this recipe</h2>
         <ul>
+          <li><code>file_preflight</code> — pre-edit findings, diagnostic freshness, conventions, and acks.</li>
           <li><code>imports_impact</code> — files that depend on a file.</li>
           <li><code>imports_hotspots</code> — most widely-imported files in the project.</li>
           <li><code>ast_find_pattern</code> — structural ast-grep over indexed JS/TS/TSX.</li>
-          <li><code>file_findings</code> — durable findings for a file.</li>
+          <li><code>reef_diff_impact</code> — changed-file downstream impact and convention risks.</li>
           <li><code>lint_files</code> — Mako rule-pack diagnostics.</li>
           <li><code>typescript_diagnostics</code> — TSC diagnostics persisted into Reef.</li>
           <li><code>git_precommit_check</code> — staged TS/TSX boundary checks.</li>

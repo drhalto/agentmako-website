@@ -2,8 +2,8 @@
 import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
-  title="Context tools — context_packet, reef_scout, tool_batch · agentmako"
-  description="The context cluster — context_packet, reef_scout, reef_inspect, evidence_confidence, tool_batch. The first tools any AI coding agent should reach for."
+  title="Context tools — mako_help, context_packet, reef_diff_impact · agentmako"
+  description="The context cluster — mako_help, context_packet, tool_batch, reef_diff_impact, reef_scout, reef_inspect, evidence confidence, and conflicts. The first tools any AI coding agent should reach for."
   canonicalPath="/docs/tools/context.html"
   ogImage="/assets/og.png"
   ogType="article"
@@ -14,18 +14,34 @@ import DocLayout from '../../../layouts/DocLayout.astro';
     <h1 style="margin-top:1rem;"><em>Context</em> tools</h1>
     <p class="doc-hero__sub">
       The first tools any agent should reach for. They turn vague
-      requests into ranked, source-labeled context — instead of grepping
-      blind. All read-only.
+      requests into ordered workflows, ranked context, and source-labeled
+      evidence — instead of grepping blind. All read-only.
     </p>
 </header>
 <section class="section">
   <div class="container">
     <article class="doc-body" style="max-width: 78ch;">
 
+      <article id="mako_help">
+        <h2><code>mako_help</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Return an ordered Mako workflow recipe for a task, with
+        suggested arguments, batching hints, and verification steps.</p>
+        <h3>When to use it</h3>
+        <p>When the agent knows the task but not the right Mako tool
+        sequence. This is the lowest-friction first call for new agents.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "task": "audit route authorization before editing",
+  "focusFiles": ["app/dashboard/layout.tsx"],
+  "changedFiles": ["app/dashboard/layout.tsx"]
+&rcub;</code></pre>
+      </article>
+
       <article id="context_packet">
         <h2><code>context_packet</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
         <p>Turn a messy coding request into ranked, source-labeled
-        context using deterministic providers first.</p>
+        context using deterministic providers first. Modes tune the
+        packet for exploration, planning, implementation, or review.</p>
         <h3>When to use it</h3>
         <p>The first call for any vague task. "debug auth onboarding",
         "where does X live?", "review impact of changing Y" — start
@@ -34,8 +50,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <pre><code>&lcub;
   "request": "debug why manager onboarding role checks are failing",
   "focusFiles": ["lib/auth/dal.ts"],   // optional
+  "mode": "implement",
   "includeInstructions": true,
   "includeRisks": true,
+  "risksMinConfidence": 0.7,
   "includeLiveHints": true,
   "freshnessPolicy": "prefer_fresh",
   "budgetTokens": 4000
@@ -46,8 +64,11 @@ import DocLayout from '../../../layouts/DocLayout.astro';
   "relatedContext":  [...],
   "activeFindings":  [...],
   "risks":           [...],
+  "modePolicy":      &lcub;...&rcub;,
+  "freshnessGate":   &lcub;...&rcub;,
   "scopedInstructions": [...],
   "recommendedHarnessPattern": "...",
+  "_hints":          [...],
   "expandableTools": ["route_trace", "db_rls", "reef_inspect"]
 &rcub;</code></pre>
         <h3>Related</h3>
@@ -76,6 +97,21 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 &rcub;</code></pre>
       </article>
 
+      <article id="reef_diff_impact">
+        <h2><code>reef_diff_impact</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Diff-aware impact packet for files changed in the working tree.
+        It reports changed-file overlay state, downstream callers,
+        active findings on those callers, and convention risks.</p>
+        <h3>When to use it</h3>
+        <p>Mid-edit or just before review, especially when a change may
+        invalidate facts on callers instead of only the edited files.</p>
+        <h3>Input</h3>
+        <pre><code>&lcub;
+  "filePaths": ["lib/auth/dal.ts", "app/dashboard/layout.tsx"],
+  "depth": 2
+&rcub;</code></pre>
+      </article>
+
       <article id="reef_inspect">
         <h2><code>reef_inspect</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
         <p>Explain one file or subject fingerprint with its facts,
@@ -99,6 +135,12 @@ import DocLayout from '../../../layouts/DocLayout.astro';
         <p>When you've pulled a fact or finding and want to know whether
         you can trust it. Drives the freshness model — see
         <a href="../concepts/freshness.html">How agentmako tracks freshness</a>.</p>
+      </article>
+
+      <article id="evidence_conflicts">
+        <h2><code>evidence_conflicts</code> <span style="color:var(--acid); font-size:0.7em;">read</span></h2>
+        <p>Find places where evidence sources disagree or where stale
+        facts should be checked before an answer or edit.</p>
       </article>
 
       <article id="tool_batch">

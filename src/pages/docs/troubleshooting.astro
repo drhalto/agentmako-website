@@ -68,17 +68,22 @@ where agentmako    # Windows</code></pre>
             <li><strong>Confirm registration</strong> — see above.</li>
             <li><strong>Tell the agent to use them</strong> — drop the
             <a href="/CLAUDE.md">agentmako CLAUDE.md template</a> into your project root. Without explicit instructions, agents default to grep.</li>
-            <li><strong>Be explicit in early prompts</strong> — for the first few turns, prompt: "Use the mako-ai <code>context_packet</code> tool first." Once the agent sees the tool's value, it tends to keep reaching for it.</li>
+            <li><strong>Be explicit in early prompts</strong> — for the first few turns, prompt: "Use the mako-ai <code>mako_help</code> or <code>context_packet</code> tool first." Once the agent sees the tool's value, it tends to keep reaching for it.</li>
           </ol>
         </section>
 
         <section id="stale">
           <h2 data-step="05">Stale results</h2>
-          <p>Reef labels every piece of evidence with a freshness tag. If you're getting stale answers:</p>
+          <p>Reef labels every piece of evidence with a freshness tag.
+          In MCP sessions the daemon should watch edits and run scoped
+          refresh work. If you're getting stale answers:</p>
           <ol>
-            <li>Check <code>project_index_status</code>.</li>
+            <li>Check <code>project_index_status</code> and
+            <code>verification_state</code> for watcher and recent-run state.</li>
+            <li>For one file, use <code>file_preflight</code> to see
+            findings, diagnostic coverage, and stale sources together.</li>
             <li>For exact post-edit text, use <code>live_text_search</code> (not <code>cross_search</code>).</li>
-            <li>Refresh: <code>project_index_refresh &lcub; "mode": "if_stale" &rcub;</code>.</li>
+            <li>Refresh index data: <code>project_index_refresh &lcub; "mode": "if_stale" &rcub;</code>. Refresh diagnostic data with <code>diagnostic_refresh</code>.</li>
             <li>Force only if the index looks actually wrong: <code>&lcub; "mode": "force" &rcub;</code> (expensive).</li>
           </ol>
           <p>Full freshness model: <a href="./concepts/freshness.html">How agentmako tracks freshness</a>.</p>
@@ -108,8 +113,9 @@ agentmako doctor</code></pre>
           <h2 data-step="08">Index out of date</h2>
           <p>You added or removed files and the index doesn't know.</p>
           <ul>
+            <li>Normal MCP session: wait for watcher-backed refresh and confirm with <code>project_index_status</code> or <code>file_preflight</code>.</li>
             <li>Quick: <code>working_tree_overlay</code> — snapshots the working tree without re-parsing.</li>
-            <li>Proper: <code>project_index_refresh &lcub; "mode": "if_stale" &rcub;</code>.</li>
+            <li>Recovery: <code>project_index_refresh &lcub; "mode": "if_stale" &rcub;</code>.</li>
             <li>Force: <code>project_index_refresh &lcub; "mode": "force" &rcub;</code> when the index is actually wrong.</li>
             <li>For DB schema changes: <code>db_reef_refresh</code>.</li>
           </ul>
@@ -118,7 +124,7 @@ agentmako doctor</code></pre>
         <section id="permissions">
           <h2 data-step="09">Permission errors</h2>
           <p>On macOS, the binary may need explicit "open" the first time. Run <code>agentmako --version</code> from a terminal once. On Windows, ensure your global npm bin is whitelisted by your endpoint protection.</p>
-          <p>For permission prompts in Cline, add tools to <code>autoApprove</code> in the MCP config — start with safe read-only tools: <code>context_packet</code>, <code>reef_scout</code>, <code>repo_map</code>, <code>cross_search</code>.</p>
+          <p>For permission prompts in Cline, add tools to <code>autoApprove</code> in the MCP config — start with safe read-only tools: <code>mako_help</code>, <code>context_packet</code>, <code>file_preflight</code>, <code>reef_scout</code>, <code>repo_map</code>, <code>cross_search</code>.</p>
         </section>
 
         <section id="bug">

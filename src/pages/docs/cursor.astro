@@ -18,7 +18,9 @@ import DocLayout from '../../layouts/DocLayout.astro';
       <strong>agentmako</strong> is a local-first MCP server that drops
       into Cursor through <code>~/.cursor/mcp.json</code> (global) or
       <code>.cursor/mcp.json</code> (per-project). Set it up once and Mako
-      tools are available in Composer (<kbd>⌘ I</kbd>) and Agent mode.
+      tools are available in Composer (<kbd>⌘ I</kbd>) and Agent mode. The
+      first Reef-backed call starts the local watcher/daemon for scoped
+      freshness work.
     </p>
 </header>
 <section class="section">
@@ -89,8 +91,9 @@ import DocLayout from '../../layouts/DocLayout.astro';
 
           <p>While you're there: Cursor lets you toggle individual tools.
           For most projects, leaving everything on is fine. If you want
-          to start small, enable just <code>context_packet</code>,
-          <code>reef_scout</code>, and <code>repo_map</code>.</p>
+          to start small, enable just <code>mako_help</code>,
+          <code>context_packet</code>, <code>file_preflight</code>, and
+          <code>reef_scout</code>.</p>
         </section>
 
         <section id="first">
@@ -133,12 +136,13 @@ alwaysApply: true
 
 When the user asks a question that requires locating
 code in this repo, call the <span class="c-str">mako-ai</span> server's
-<span class="c-str">context_packet</span> or <span class="c-str">reef_scout</span> tool BEFORE issuing
+<span class="c-str">mako_help</span>, <span class="c-str">context_packet</span>, or <span class="c-str">reef_scout</span> tool BEFORE issuing
 any grep / file reads.
 
 For natural-language repo questions, prefer
 <span class="c-str">reef_scout</span>. For concrete coding tasks, prefer
-<span class="c-str">context_packet</span>.
+<span class="c-str">context_packet</span>. Before editing a known file, call
+<span class="c-str">file_preflight</span>.
 
 Only fall back to grep if Mako returns no candidates.</pre>
           </div>

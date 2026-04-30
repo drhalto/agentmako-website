@@ -3,7 +3,7 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 ---
 <DocLayout
   title="What is a context packet? · agentmako"
-  description="A context packet is a ranked, source-labeled bundle of likely-relevant files, routes, schema objects, findings, and next-reads — returned deterministically by agentmako's context_packet tool."
+  description="A context packet is a ranked, source-labeled bundle of likely-relevant files, routes, schema objects, findings, risks, freshness, and next reads — returned deterministically by agentmako's context_packet tool."
   canonicalPath="/docs/concepts/context-packets.html"
   ogImage="/assets/og.png"
   ogImageAlt="agentmako — context packet explainer."
@@ -15,8 +15,8 @@ import DocLayout from '../../../layouts/DocLayout.astro';
     <h1 style="margin-top:1rem;">What is a <em>context packet</em>?</h1>
     <p class="doc-hero__sub">
       <strong>A context packet is a ranked, source-labeled bundle of
-      likely-relevant files, routes, schema objects, findings, and
-      next-reads</strong> — returned deterministically by agentmako's
+      likely-relevant files, routes, schema objects, findings, risks,
+      freshness, and next reads</strong> — returned deterministically by agentmako's
       <code>context_packet</code> tool, instead of letting the agent grep
       blind.
     </p>
@@ -34,9 +34,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           structured packet: the most likely files, the routes touching
           them, the active findings on those files, the database objects
           they reference, scoped instructions from
-          <code>.mako/instructions.md</code>, and a recommendation for what
-          to read next. The agent starts there instead of grepping its way
-          in.</p>
+          <code>.mako/instructions.md</code>, risk confidence filters,
+          freshness gates, and a recommendation for what to read next. The
+          agent starts there instead of grepping its way in.</p>
         </section>
 
         <section id="problem">
@@ -87,13 +87,16 @@ import DocLayout from '../../../layouts/DocLayout.astro';
     &rcub;
   ],
   <span class="c-key">"risks"</span>: [
-    <span class="c-str">"This file touches admin_audit_log — RLS-sensitive."</span>
+    &lcub; <span class="c-key">"message"</span>: <span class="c-str">"RLS-sensitive route"</span>, <span class="c-key">"confidence"</span>: 0.92 &rcub;
   ],
+  <span class="c-key">"modePolicy"</span>: &lcub; <span class="c-key">"mode"</span>: <span class="c-str">"implement"</span> &rcub;,
+  <span class="c-key">"freshnessGate"</span>: &lcub; <span class="c-key">"status"</span>: <span class="c-str">"fresh"</span> &rcub;,
   <span class="c-key">"scopedInstructions"</span>: [
     &lcub; <span class="c-key">"file"</span>: <span class="c-str">".mako/instructions.md#auth"</span>, <span class="c-key">"text"</span>: <span class="c-str">"..."</span> &rcub;
   ],
-  <span class="c-key">"recommendedHarnessPattern"</span>: <span class="c-str">"read primaryContext → call file_findings → edit"</span>,
-  <span class="c-key">"expandableTools"</span>: [<span class="c-str">"route_trace"</span>, <span class="c-str">"db_rls"</span>, <span class="c-str">"reef_inspect"</span>]
+  <span class="c-key">"recommendedHarnessPattern"</span>: <span class="c-str">"read primaryContext → call file_preflight → edit"</span>,
+  <span class="c-key">"_hints"</span>: [<span class="c-str">"Call file_preflight before editing lib/auth/dal.ts."</span>],
+  <span class="c-key">"expandableTools"</span>: [<span class="c-str">"route_trace"</span>, <span class="c-str">"db_rls"</span>, <span class="c-str">"file_preflight"</span>]
 &rcub;</pre>
           </div>
 
@@ -108,7 +111,13 @@ import DocLayout from '../../../layouts/DocLayout.astro';
             findings on those files (lint/audit issues, design rules
             violations, prior reviews).</li>
             <li><strong><code>risks</code></strong> — short risk callouts
-            ("this touches RLS-sensitive tables").</li>
+            ("this touches RLS-sensitive tables"), with confidence scores
+            so low-signal risks can be filtered.</li>
+            <li><strong><code>modePolicy</code></strong> — how the selected
+            mode shaped provider choice and follow-up behavior.</li>
+            <li><strong><code>freshnessGate</code></strong> — whether the
+            packet used live/fresh indexed evidence or had to label stale
+            inputs.</li>
             <li><strong><code>scopedInstructions</code></strong> — relevant
             slices of <code>.mako/instructions.md</code> /
             <code>AGENTS.md</code> for these files.</li>
@@ -116,6 +125,8 @@ import DocLayout from '../../../layouts/DocLayout.astro';
             literal next-tool suggestion, like a recipe.</li>
             <li><strong><code>expandableTools</code></strong> — other Mako
             tools that would be useful next.</li>
+            <li><strong><code>_hints</code></strong> — contextual next-step
+            hints generated from the actual result.</li>
           </ul>
         </section>
 
@@ -145,8 +156,10 @@ import DocLayout from '../../../layouts/DocLayout.astro';
 <pre>&lcub;
   <span class="c-key">"request"</span>: <span class="c-str">"review auth impact of this change"</span>,
   <span class="c-key">"focusFiles"</span>: [<span class="c-str">"lib/auth/dal.ts"</span>, <span class="c-str">"app/dashboard/manager/layout.tsx"</span>],
+  <span class="c-key">"mode"</span>: <span class="c-str">"review"</span>,
   <span class="c-key">"includeInstructions"</span>: <span class="c-keyword">true</span>,
   <span class="c-key">"includeRisks"</span>: <span class="c-keyword">true</span>,
+  <span class="c-key">"risksMinConfidence"</span>: 0.7,
   <span class="c-key">"freshnessPolicy"</span>: <span class="c-str">"prefer_fresh"</span>,
   <span class="c-key">"budgetTokens"</span>: 4000
 &rcub;</pre>
@@ -178,7 +191,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           handler for <code>/api/manager/onboarding</code>" is a graph
           query, not a similarity search. The handler resolves through the
           route table, then the import graph, then symbol references — all
-          deterministic.</p>
+          deterministic. When you're not sure how to start, call
+          <code>mako_help</code> first; it will often recommend the exact
+          <code>context_packet</code> mode and follow-up tools.</p>
 
           <p>Embeddings are still useful in some places (e.g. ranking
           fuzzy "what about this" follow-ups), but the spine of a Mako
@@ -222,7 +237,8 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <p>For any vague task, start with one
           <code>context_packet</code>. The agent reads the
           <code>primaryContext</code> files first, then optionally calls
-          <code>file_findings</code> on each before editing. This single
+          <code>file_preflight</code> on each risky file before editing.
+          This single
           call replaces 5–10 grep/file-walk turns.</p>
 
           <h3>Focused review</h3>
@@ -234,8 +250,9 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           <h3>Pre-edit risk check</h3>
           <p>Set <code>includeRisks: true</code>. If the file touches
           tenant-keyed tables, RLS-sensitive routes, or auth boundaries,
-          the packet flags it before the agent edits. Cheap to ask;
-          expensive to ignore.</p>
+          the packet flags it before the agent edits. Use
+          <code>risksMinConfidence</code> to hide speculative risks.
+          Cheap to ask; expensive to ignore.</p>
         </section>
 
         <section id="not">
