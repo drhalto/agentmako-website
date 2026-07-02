@@ -1,0 +1,167 @@
+---
+import BlogLayout from '../../layouts/BlogLayout.astro';
+---
+<BlogLayout
+  title="agentmako 0.5.0: a live map that only claims what it can prove"
+  description="False positives are worse for agents than for humans — an agent treats every finding as ground truth. 0.5.0 is a precision overhaul: change-based freshness, findings that heal, self-correcting misses, and method-level symbols. Here's what we found dogfooding it against a 2,350-file production repo."
+  canonicalPath="/blog/trustworthy-live-map-0-5-0.html"
+  publishedAt="2026-07-02"
+  readingTimeMin={7}
+  tags={["release", "reef-engine", "precision"]}
+  ogImageAlt="agentmako 0.5.0 — the trustworthy live map release"
+>
+
+<p>A context engine has one job: when an agent asks about your repo,
+the answer has to be true. Not "usually true." Not "true when the
+index is warm." True — or clearly labeled as uncertain.</p>
+
+<p>That bar is higher for agents than for humans. A human sees
+"7 import cycles detected" and squints: <em>really? those look like
+type imports.</em> An agent doesn't squint. It treats the finding as
+ground truth, plans around it, maybe "fixes" code that was never
+broken. Every false positive a context layer emits gets amplified by
+whatever the agent does next.</p>
+
+<p>agentmako 0.5.0 is a precision overhaul. We hunted false positives
+across every surface that makes a claim — imports, cycles, staleness,
+findings, coverage gates, pre-commit checks — and fixed what we found.
+Then we pointed the tool at a 2,350-file production Next.js/Supabase
+app and let it embarrass us some more. This post is the tour.</p>
+
+<h2>The false positives we killed</h2>
+
+<h3>"unresolved" imports that were never broken</h3>
+
+<p>Ask the old <code>imports_deps</code> about any file and it would
+report <code>react</code>, <code>zod</code>, and <code>node:path</code>
+as <em>unresolved imports</em> — because the import graph resolves
+against indexed files only, and node_modules isn't indexed. Every
+file in your repo looked broken. Now only relative and re-export
+edges that <em>should</em> have resolved to indexable source count as
+unresolved. Asset imports (<code>./logo.svg</code>,
+<code>./styles.module.scss</code>) are excluded too.</p>
+
+<h3>Import "cycles" erased at compile time</h3>
+
+<p>On the production test repo, <code>imports_cycles</code> reported
+7 cycles. We checked every one: all seven were closed by an
+<code>import type</code> edge — erased at compile time, no runtime
+cycle, nothing to "break before refactoring." Type-only edges are now
+excluded from cycle detection. The repo correctly reports zero.</p>
+
+<h3>Staleness by wall clock</h3>
+
+<p>The old freshness model marked things stale for reasons that had
+nothing to do with your code changing: an mtime bump from
+<code>git checkout</code>, a project-wide revision counter advanced by
+a README edit, a 30-minute cache TTL expiring while you ate lunch.
+Now staleness is <strong>change-based</strong>: content hashes gate
+every mtime comparison, revision drift only counts change sets that
+overlap what a diagnostic run actually analyzed, and an expired cache
+reports <code>unknown</code> ("expired without re-verification") —
+never <code>stale</code>. The inverse holds too: a file that really
+changed flips its sources stale even inside the cache window.</p>
+
+<h3>Findings that never healed</h3>
+
+<p>The worst one. Query-time diagnostics were persisted as active
+findings with no resolution path — fix the code, and the finding
+stayed active forever. Heuristic name-matching detectors also stamped
+their guesses <code>confidence: "confirmed"</code> at high severity.
+A live map that accretes unfixable noise trains agents (and humans)
+to ignore it.</p>
+
+<p>Now: findings persist under one source, scoped to the files each
+pass analyzed, so re-analysis <strong>resolves</strong> anything it
+can no longer reproduce. Heuristic detectors say
+<code>probable</code> at medium severity — leads, not verdicts.
+Only verified evidence gets to say <code>confirmed</code>.</p>
+
+<h3>Prose treated as code</h3>
+
+<p>Context packets used to treat any backticked phrase as a code
+literal ("the <code>authentication middleware</code> flow" → "quoted
+literal was not found on the current filesystem") and any sentence
+containing the word "import" or "reference" as a dependency-graph
+request — then downgrade the whole packet for failing to cover
+anchors that never existed. Sentence-initial capitalized words
+("Explain how…") became phantom symbol anchors that actively steered
+retrieval toward junk. All of that is fixed, and fixing it made
+retrieval <em>more relevant</em>, not just quieter.</p>
+
+<h2>What 0.5.0 adds</h2>
+
+<h3>Method-level symbols</h3>
+
+<p>The symbol index used to stop at top-level declarations. Ask
+"where is <code>getUserRoles</code> defined and who calls it?" and
+the map only knew the class shell — the question dead-ended. Class
+methods are now first-class symbols, which means the whole chain
+lights up: the method resolves to a graph anchor, the import graph
+walks its callers, and one <code>context_packet</code> returns the
+definition <em>plus</em> caller edges, graph status
+<code>connected</code>.</p>
+
+<h3>Misses that self-correct</h3>
+
+<p>Agents guess paths and names — that's not going to change. What
+changed is what a miss returns:</p>
+
+<pre><code>No indexed match found for: lib/auth/index.ts
+  — closest indexed matches: lib/auth/dal.ts, lib/auth/roles.ts,
+    lib/auth/constants.ts, lib/auth/safe-path.ts</code></pre>
+
+<p>Same for symbols: ask for <code>getUserRole</code> when the repo
+defines <code>getUserRoles</code> and the packet says so. One step to
+recover instead of a dead end. (And when there's no good match, the
+suggestion stays silent — junk corrections are their own kind of
+false positive.)</p>
+
+<h3>Multi-writer protection</h3>
+
+<p>We caught this one live: a globally-installed older agentmako MCP
+server shared a project store with the newer workspace build — and
+its file watcher quietly re-indexed away the method symbols the new
+version had just written. Index runs are now stamped with a
+capability version; an older writer that would downgrade a newer
+store warns loudly before proceeding.</p>
+
+<h2>How we validated it</h2>
+
+<p>Two ways, because they catch different things. The synthetic
+suite (126 smoke tests) pins the semantics: a regression test that
+touches a file with identical bytes and asserts it does <em>not</em>
+go stale; one that fixes a flagged call site and asserts the finding
+resolves; one that lands a docs-only change set and asserts no
+diagnostic source flips.</p>
+
+<p>Then dogfooding against a real production app, where every one of
+the ugliest bugs actually surfaced — the type-only cycles, the
+phantom "Explain" symbol anchor, the multi-writer downgrade. If you
+build tools for agents, point the tool at a repo it has never seen
+and ask it the questions an agent would ask. The synthetic suite
+never would have found these.</p>
+
+<h2>The trust contract</h2>
+
+<p>0.5.0 turns an implicit goal into an explicit rule for every
+surface that makes a claim:</p>
+
+<ul>
+  <li>Every claim is <strong>evidence-backed</strong> — or it isn't made.</li>
+  <li>Uncertainty is labeled as <strong>uncertainty</strong> — <code>unknown</code> and <code>probable</code> exist so <code>stale</code> and <code>confirmed</code> mean something.</li>
+  <li>Misses come with <strong>corrections</strong> — a dead end is a bug.</li>
+  <li>Findings <strong>heal</strong> — fixed code resolves its own findings.</li>
+</ul>
+
+<p>That's the whole point of a live map. Not more context —
+context an agent can act on without second-guessing.</p>
+
+<p>agentmako 0.5.0 is on npm: <code>npm install -g agentmako</code>.
+Full changelog on
+<a href="https://github.com/drhalto/agentmako/releases/tag/v0.5.0"
+target="_blank" rel="noopener">the GitHub release</a>. If you're
+running an older global install alongside a newer one, update the
+global first — see the multi-writer note above.</p>
+
+</BlogLayout>

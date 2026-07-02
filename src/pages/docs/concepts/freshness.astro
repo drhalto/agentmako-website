@@ -106,6 +106,34 @@ import DocLayout from '../../../layouts/DocLayout.astro';
           batch of edits.</p>
         </section>
 
+        <section id="change-based">
+          <h2>Change-based, not clock-based</h2>
+          <p>Since 0.5.0, "stale" is a claim Mako only makes when content
+          actually changed:</p>
+
+          <ul>
+            <li><strong>Content hashes gate mtime.</strong> A file whose
+            bytes still hash to the indexed content is not "changed" —
+            <code>git checkout</code>, <code>git pull</code>,
+            <code>touch</code>, and format-on-save writing identical bytes
+            no longer flip diagnostics stale.</li>
+            <li><strong>Revision drift is scoped.</strong> Editing a README
+            or another package advances the project revision, but only
+            change sets that overlap what a diagnostic run actually
+            analyzed mark that run stale.</li>
+            <li><strong>Expiry is not staleness.</strong> A diagnostic
+            cache that ages past its window reports <code>unknown</code>
+            ("expired without re-verification"), not <code>stale</code>.
+            Conversely, a file that really changed after a run upgrades
+            that source to <code>stale</code> even inside the cache
+            window.</li>
+          </ul>
+
+          <p>The practical effect: when a Mako surface says
+          <code>stale</code>, something real changed — an agent can act on
+          the label without second-guessing it.</p>
+        </section>
+
         <section id="daemon">
           <h2>The background daemon</h2>
           <p>When <code>agentmako mcp</code> handles a Reef-backed request,

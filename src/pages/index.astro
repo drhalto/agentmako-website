@@ -119,6 +119,14 @@ import { agentmakoMeta } from '../lib/agentmakoMeta';
               "@type": "Answer",
               "text": "Without a persistent context layer, agents have no memory of your project across turns. Each prompt they start fresh — running grep, walking directories, re-reading files they read 30 seconds ago. The fix is a context engine like agentmako that indexes the repo once and serves typed context packets on demand, with durable findings that persist across sessions."
             }
+          },
+          {
+            "@type": "Question",
+            "name": "How does agentmako avoid false positives and stale context?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "agentmako decides staleness from content hashes and overlapping change sets — never mtime churn or wall-clock TTLs — so git checkout, touch, and format-on-save don't fake changes. Heuristic findings are labeled probable rather than confirmed, findings resolve automatically when re-analysis no longer reproduces them, and unresolved file or symbol lookups return closest-match suggestions so agents can self-correct."
+            }
           }
         ]
       }
@@ -253,12 +261,49 @@ import { agentmakoMeta } from '../lib/agentmakoMeta';
         <div class="am-loop-step am-reveal" style="transition-delay:140ms;">
           <span class="am-loop-step__n">03</span>
           <h4>Background freshness</h4>
-          <p>The daemon watches edits, refreshes scoped diagnostics, and labels stale or contradicted evidence.</p>
+          <p>The daemon watches edits and refreshes scoped diagnostics. Staleness is decided by content hashes — not clocks, not mtimes.</p>
         </div>
         <div class="am-loop-step am-reveal" style="transition-delay:210ms;">
           <span class="am-loop-step__n">04</span>
           <h4>Agent workflows</h4>
           <p><code>context_packet</code>, <code>file_preflight</code>, and <code>reef_diff_impact</code> turn Reef into one-call guidance.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== TRUST ===== -->
+  <section class="am-sect" id="trust">
+    <div class="am-shell">
+      <div class="am-sect-head am-reveal">
+        <span class="am-sect-eyebrow" data-glyph="✓">the trust contract</span>
+        <h2 class="am-h2">A map that only claims what it can prove.</h2>
+        <p class="am-lede">
+          A context layer that cries wolf is worse than none — agents treat its
+          findings as ground truth. Mako's rule: every claim is evidence-backed,
+          uncertainty is labeled as uncertainty, and misses come with corrections.
+        </p>
+      </div>
+      <div class="am-loop">
+        <div class="am-loop-step am-reveal">
+          <span class="am-loop-step__n">01</span>
+          <h4>Change-based freshness</h4>
+          <p>Content hashes and overlapping change sets decide what's stale. <code>git checkout</code>, <code>touch</code>, and format-on-save don't fake changes; an expired cache reads <code>unknown</code>, never <code>stale</code>.</p>
+        </div>
+        <div class="am-loop-step am-reveal" style="transition-delay:70ms;">
+          <span class="am-loop-step__n">02</span>
+          <h4>Findings that heal</h4>
+          <p>Fix the code and re-analysis resolves the finding — nothing accretes forever. Heuristic detectors say <code>probable</code>; only verified evidence says <code>confirmed</code>.</p>
+        </div>
+        <div class="am-loop-step am-reveal" style="transition-delay:140ms;">
+          <span class="am-loop-step__n">03</span>
+          <h4>Misses that self-correct</h4>
+          <p>Ask for <code>lib/auth/index.ts</code> or <code>getUserRole</code> and get the closest indexed paths and symbols back — one step to recover instead of a dead-end 404.</p>
+        </div>
+        <div class="am-loop-step am-reveal" style="transition-delay:210ms;">
+          <span class="am-loop-step__n">04</span>
+          <h4>Method-level depth</h4>
+          <p>"Who calls <code>getUserRoles</code>?" resolves through class methods to a real caller graph in one <code>context_packet</code> — not just the class shell.</p>
         </div>
       </div>
     </div>
@@ -302,6 +347,13 @@ import { agentmakoMeta } from '../lib/agentmakoMeta';
             <div class="am-diff__lines">
               <div class="am-diff__line bad"><span>−</span>findings die with the chat</div>
               <div class="am-diff__line good"><span>+</span>reef remembers findings, acks, runs, and conventions</div>
+            </div>
+          </div>
+          <div class="am-diff__row">
+            <div class="am-diff__label">signal</div>
+            <div class="am-diff__lines">
+              <div class="am-diff__line bad"><span>−</span>false positives pile up until the tool gets ignored</div>
+              <div class="am-diff__line good"><span>+</span>claims only what evidence backs; fixed findings resolve themselves</div>
             </div>
           </div>
           <div class="am-diff__row">
@@ -644,6 +696,18 @@ If Mako and live files/tests disagree, trust live reads and test output, then re
             sits in <code>.mako-ai/</code> under each project. Outbound traffic
             only when you wire a model provider or connect Postgres / Supabase.</p>
             <p><a href="https://github.com/drhalto/agentmako/blob/main/PRIVACY.md">Privacy policy &rarr;</a></p>
+          </div>
+        </details>
+
+        <details class="am-faq-item">
+          <summary>How does Mako avoid false positives and stale context?</summary>
+          <div class="am-faq-body">
+            <p>Staleness is content-based (hashes and overlapping change sets,
+            never mtime churn or wall-clock TTLs), heuristic findings are
+            labeled <code>probable</code> rather than <code>confirmed</code>,
+            fixed findings resolve on re-analysis, and unresolved files or
+            symbols come back with closest-match corrections.</p>
+            <p><a href="/docs/concepts/freshness.html">The freshness model &rarr;</a></p>
           </div>
         </details>
 
